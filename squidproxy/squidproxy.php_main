@@ -1,0 +1,206 @@
+<?php
+
+use WHMCS\Database\Capsule;
+
+
+if(!defined("WHMCS")) {
+    die("This file cannot be accessed directly");
+}
+
+
+function squidproxy_MetaData() {
+    return [
+        'DisplayName' => 'WHMCS Squid proxy module',
+    ];
+}
+
+function squidproxy_ConfigOptions() {
+    
+    // custom fileds and template
+    createSquidCustomFields();
+    squidEmailTemplate();
+
+    return [
+        'API URL' => [
+            'Type' => 'text', 
+            'Size' => '50', 
+            'Description' => 'Enter API URL',
+        ],
+        'API Key' => [
+            'Type' => 'password', 
+            'Size' => '50', 
+            'Description' => 'Enter API Key',
+        ],
+        'Proxy Count' => [
+            'Type' => 'text', 
+            'Size' => '10', 
+            'Default' => '10', 
+            'Description' => 'Default no. of proxies',
+        ],
+        'Enable Testing' => [
+            'Type' => 'yesno',
+            'Description' => 'Tick to enable',
+        ],
+        'Textarea Field' => [
+            'Type' => 'textarea',
+            'Rows' => '3',
+            'Cols' => '60',
+            'Description' => 'Write description here...',
+        ],
+    ];
+    
+}
+
+// function squidproxy_Activate() {
+//     squidCustomFields();
+//     squidEmailTemplate();
+// }
+
+// Test Connection
+function squidproxy_TestConnection(array $params)
+{
+    try {
+        // 
+    } catch (Exception $e) {
+        // 
+        $success = false;
+        $errorMsg = $e->getMessage();
+    }
+
+    return array(
+        'success' => $success,
+        'error' => $errorMsg,
+    );
+}
+
+// Create Account
+function squidproxy_CreateAccount(array $params)
+{
+    try {
+        
+    } catch (Exception $e) {
+        // 
+        return $e->getMessage();
+    }
+
+    return 'success';
+}
+
+
+
+function squidEmailTemplate() {
+    try {
+        $emailData = [
+            'name' => 'Squid Proxy Server',
+            'subject' => 'Squid Proxy Information',
+            'type' => 'product',
+            'message' => 'Your Squid Proxy server has been created. Thanks!',
+            'custom' => 1,
+            'plaintext' => 0,
+            'language' => '', 
+        ];
+
+        $templateExist = Capsule::table('tblemailtemplates')->where('type', 'product')->where('name', $emailData['name'])->first();
+
+        if (!$templateExist) {
+            Capsule::table('tblemailtemplates')->insert($emailData);
+            logActivity("Email template '{$emailData['name']}' created successfully.");
+        }
+    } catch (Exception $e) {
+        logActivity("Error in creating email template: " . $e->getMessage());
+    }
+}
+
+// custom fields
+function squidCustomFields($pid) {
+    $customfieldarray = [
+        [
+            'type' => 'product',
+            'fieldname' => 'server_id|Server ID',
+            'relid' => $pid,
+            'fieldtype' => 'text',
+            'description' => 'Only for admin',
+            'adminonly' => 'on',
+        ],
+        [
+            'type' => 'product',
+            'fieldname' => 'publicKey|Public Key',
+            'relid' => $pid,
+            'fieldtype' => 'textarea',
+            'description' => 'Only for admin',
+            'adminonly' => 'on',
+        ],
+        [
+            'type' => 'product',
+            'fieldname' => 'planType|Plan Type',
+            'relid' => $pid,
+            'fieldtype' => 'dropdown',
+            'description' => 'Choose a plan type',
+            'adminonly' => '',
+            'options' => 'Basic,Standard,Premium'
+        ],
+        [
+            'type' => 'product',
+            'fieldname' => 'enableFeature|Enable Feature',
+            'relid' => $pid,
+            'fieldtype' => 'tickbox',
+            'description' => 'Enable additional features',
+            'adminonly' => '',
+        ],
+        [
+            'type' => 'product',
+            'fieldname' => 'passwordField|Secure Password',
+            'relid' => $pid,
+            'fieldtype' => 'password',
+            'description' => 'Secure password field',
+            'adminonly' => 'on',
+        ],
+        [
+            'type' => 'product',
+            'fieldname' => 'documentation|Documentation Link',
+            'relid' => $pid,
+            'fieldtype' => 'link',
+            'description' => 'Provide a link to documentation',
+            'adminonly' => '',
+        ],
+        [
+            'type' => 'product',
+            'fieldname' => 'activationDate|Activation Date',
+            'relid' => $pid,
+            'fieldtype' => 'date',
+            'description' => 'Select activation date',
+            'adminonly' => '',
+        ]
+    ];
+
+    foreach ($customfieldarray as $customfieldval) {
+        $fieldname = explode('|', $customfieldval['fieldname'])[0];
+
+        $fieldExist = Capsule::table('tblcustomfields')->where('type', 'product')->where('relid', $pid)->where('fieldname', $fieldname)->exists();
+
+        if (!$fieldExist) {
+            Capsule::table('tblcustomfields')->insert([
+                'type' => $customfieldval['type'],
+                'fieldname' => $fieldname,
+                'relid' => $customfieldval['relid'],
+                'fieldtype' => $customfieldval['fieldtype'],
+                'description' => $customfieldval['description'],
+                'adminonly' => $customfieldval['adminonly'],
+
+            ]);
+        }
+    }
+}
+
+
+function getSquidProxyProductIDs() {
+    return Capsule::table('tblproducts')->where('servertype', 'squidproxy')->pluck('id')->toArray();
+}
+
+function createSquidCustomFields() {
+    $productIDs = getSquidProxyProductIDs();
+
+    foreach ($productIDs as $pid) {
+        squidCustomFields($pid);
+    }
+}
