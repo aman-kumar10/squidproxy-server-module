@@ -110,70 +110,86 @@ class Helper
         }
     }
 
+    // API Call
     function curlCall($url , $action)
     {
 
-        $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, $url);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 1000);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
-
-        $response = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
-
-        /** Log the API request and response for the Proxy Server module */
-        logModuleCall('Squid Proxy', $action, $url, $response, "", "");
-
-        // if (curl_errno($ch)) {
-        //     throw new \Exception(curl_error($ch));
-        // }
-
-        return ['httpcode' => $httpCode, 'result' => json_decode($response)];
+        try {
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, $url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 1000);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
+    
+            $response = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+    
+            /** Log the API request and response for the Proxy Server module */
+            logModuleCall('Squid Proxy', $action, $url, $response, "", "");
+    
+            // if (curl_errno($ch)) {
+            //     throw new \Exception(curl_error($ch));
+            // }
+            return ['httpcode' => $httpCode, 'result' => json_decode($response)];
+        } catch(Exception $e) {
+            logActivity("Error in API request: " . $e->getMessage());
+        }
     }
 
 
     // update or insert values in custom fields
-    function insertcustomFieldVal($pid,$id, $value, $fieldname, $fieldtype) {
+    function insertcustomFieldVal($pid, $sid, $value, $fieldname, $fieldtype) {
 
-        $customField = Capsule::table('tblcustomfields')
-        ->where('type', 'product')
-        ->where('relid', $pid)
-        ->where('fieldname', $fieldname)
-        ->where('fieldtype', $fieldtype)->first();
-
-        if($customField->id) {
-            Capsule::table('tblcustomfieldsvalues')->Insert(
-                [
-                    'fieldid' => $customField->id,
-                    'relid' => $id,
-                    'value' => $value
-                ]
-            );
+        try {
+            $customField = Capsule::table('tblcustomfields')
+            ->where('type', 'product')
+            ->where('relid', $pid)
+            ->where('fieldname', $fieldname)
+            ->where('fieldtype', $fieldtype)->first();
+    
+            if($customField->id) {
+                Capsule::table('tblcustomfieldsvalues')->Insert(
+                    [
+                        'fieldid' => $customField->id,
+                        'relid' => $sid,
+                        'value' => $value
+                    ]
+                );
+            }
+        } catch(Exception $e) {
+            logActivity("Error to insert values in custom fields: " . $e->getMessage());
         }
     }
 
     function getCustomFieldVal($id, $fieldname, $fieldtype) {
-        $customField = Capsule::table('tblcustomfields')
-            ->where('type', 'product')
-            ->where('relid', $id)
-            ->where('fieldname', $fieldname)
-            ->where('fieldtype', $fieldtype)
-            ->first();
-    
-        if ($customField && $customField->id) {
-            return Capsule::table('tblcustomfieldsvalues')
-                ->where('fieldid', $customField->id)
+        try {
+            $customField = Capsule::table('tblcustomfields')
+                ->where('type', 'product')
                 ->where('relid', $id)
-                ->value('value') ?? null;
+                ->where('fieldname', $fieldname)
+                ->where('fieldtype', $fieldtype)
+                ->first();
+        
+            if ($customField && $customField->id) {
+                return Capsule::table('tblcustomfieldsvalues')
+                    ->where('fieldid', $customField->id)
+                    ->where('relid', $id)
+                    ->value('value') ?? null;
+            }
+            return null; 
+        } catch(Exception $e) {
+            logActivity("Error in fetching custom fields values: " . $e->getMessage());
         }
-        return null; 
     }
 
     // generate password
     function generatePassword($length = 16) {
-        return substr(str_shuffle('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()-_=+'), 0, $length);
+        try {
+            return substr(str_shuffle('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()-_=+'), 0, $length);
+        } catch(Exception $e) {
+            logActivity("Error in generating password: " . $e->getMessage());
+        }
     }
 }

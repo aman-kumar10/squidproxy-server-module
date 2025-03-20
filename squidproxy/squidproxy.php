@@ -69,9 +69,7 @@ function squidproxy_TestConnection(array $params)
         $password = $params['serverpassword'];
         $port = $params['serverport'];
 
-
         $url = "http://" . $hostname . ":" . $port . "/auth/signin?username=" . $username . "&password=" . $password;
-
 
         $helper = new Helper();
         $curlRes = $helper->curlCall($url, 'Test Connection');
@@ -84,23 +82,13 @@ function squidproxy_TestConnection(array $params)
 
             if ($tokenExists) {
                 foreach ($tokenExists as $token) {
-                    // echo "<pre>";
-                    // print_r($token->id);
-                    // die();
-
                     $configVal = Capsule::table('tblproducts')->where('id', $token->id)->value('configoption1');
-
 
                     if (!empty($configVal)) {
                         Capsule::table('tblproducts')->where('id', $token->id)->update([
                             'configoption1' => $curlRes['result']->data->token
                         ]);
                     }
-                    //  else {
-                    //     Capsule::table('tblproducts')->where('id', $token->id)->insert([
-                    //         'configoption1', $curlRes['result']->data->token
-                    //     ]);
-                    // }
                 }
             } else {
                 return false;
@@ -135,19 +123,11 @@ function squidproxy_CreateAccount($params)
         $productId = $params['pid'];
         $serviceId = $params['serviceid'];
 
-
-        // if(!empty($helper->getCustomFieldVal($productId, 'Proxy Customer Name', 'text'))) {
-        //     $username = $helper->getCustomFieldVal($productId, 'Proxy Customer Name', 'text');
-        // } else {
-
-        // }
-
         if (!empty($helper->getCustomFieldVal($productId, 'Proxy Customer Password', 'password'))) {
             $password = $helper->getCustomFieldVal($productId, 'Proxy Customer Password', 'password');
         } else {
             $password = $helper->generatePassword(random_int(15, 16));
         }
-
 
         $userVals = Capsule::table('tblclients')->where('id', $userId)->first();
         $username = strtolower(str_replace(' ', '', $userVals->firstname.$userVals->lastname.$serviceId));
