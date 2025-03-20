@@ -8,19 +8,6 @@ use Exception;
 class Helper
 {
 
-    public function testConnection($params)
-    {
-        try {
-            $this->method = 'GET';
-            $this->endPoint .= "/auth/signin?username=" . $params['serverusername'] . "&password" . $params['serverpassword'];
-            $this->action = 'Test Connection';
-            $curlResponse = $this->curlCall();
-
-            return $curlResponse;
-        } catch (\Exception $e) {
-            logActivity("Error: Proxy server module failed to execute the testConnection function - " . $e->getMessage());
-        }
-    }
     // configurable options
     function configurableOptions()
     {
@@ -74,44 +61,48 @@ class Helper
     }
 
     // custom fields client type
-    function customfieldsClient()
+    function customfieldsProduct($id)
     {
         try {
             $fields = [
                 [
-                    'fieldname'   => 'Customer Name',
-                    'description' => 'Enter Customer Name',
+                    'fieldname'   => 'Proxy Customer Name',
+                    'description' => 'Enter Proxy Customer Name',
                     'fieldtype'   => 'text',
+                    'relid' => $id
                 ],
                 [
-                    'fieldname'   => 'Customer Email',
-                    'description' => 'Enter Customer Email',
-                    'fieldtype'   => 'text',
+                    'fieldname'   => 'Proxy Customer Password',
+                    'description' => 'Enter Proxy Customer Password',
+                    'fieldtype'   => 'password',
+                    'relid' => $id
                 ],
             ];
 
             foreach ($fields as $field) {
                 $fieldExist = Capsule::table('tblcustomfields')
+                    ->where('relid', $field['relid'])
                     ->where('fieldname', $field['fieldname'])
-                    ->where('type', 'client')
+                    ->where('type', 'product')
                     ->exists();
 
                 if (!$fieldExist) {
                     Capsule::table('tblcustomfields')->insert([
-                        'type'        => 'client',
+                        'type'        => 'product',
+                        'relid'        => $field['relid'],
                         'fieldname'   => $field['fieldname'],
                         'description' => $field['description'],
                         'fieldtype'   => $field['fieldtype'],
-                        'adminonly'   => '1',
+                        'adminonly'   => 'on',
                         'required'    => '0',
                         'showorder'   => '0',
                         'showinvoice' => '0',
                         'sortorder'   => '0',
                     ]);
 
-                    logActivity("Custom client field '{$field['fieldname']}' created successfully.");
+                    logActivity("Custom product field '{$field['fieldname']}' created successfully.");
                 } else {
-                    logActivity("Custom client field '{$field['fieldname']}' already exists.");
+                    logActivity("Custom product field '{$field['fieldname']}' already exists.");
                 }
             }
         } catch (Exception $e) {
@@ -141,5 +132,48 @@ class Helper
         // }
 
         return ['httpcode' => $httpCode, 'result' => json_decode($response)];
+    }
+
+
+    // update or insert values in custom fields
+    function insertcustomFieldVal($pid,$id, $value, $fieldname, $fieldtype) {
+
+        $customField = Capsule::table('tblcustomfields')
+        ->where('type', 'product')
+        ->where('relid', $pid)
+        ->where('fieldname', $fieldname)
+        ->where('fieldtype', $fieldtype)->first();
+
+        if($customField->id) {
+            Capsule::table('tblcustomfieldsvalues')->Insert(
+                [
+                    'fieldid' => $customField->id,
+                    'relid' => $id,
+                    'value' => $value
+                ]
+            );
+        }
+    }
+
+    function getCustomFieldVal($id, $fieldname, $fieldtype) {
+        $customField = Capsule::table('tblcustomfields')
+            ->where('type', 'product')
+            ->where('relid', $id)
+            ->where('fieldname', $fieldname)
+            ->where('fieldtype', $fieldtype)
+            ->first();
+    
+        if ($customField && $customField->id) {
+            return Capsule::table('tblcustomfieldsvalues')
+                ->where('fieldid', $customField->id)
+                ->where('relid', $id)
+                ->value('value') ?? null;
+        }
+        return null; 
+    }
+
+    // generate password
+    function generatePassword($length = 16) {
+        return substr(str_shuffle('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()-_=+'), 0, $length);
     }
 }
