@@ -7,18 +7,15 @@ if (!defined("WHMCS")) {
     die('You can not access this file directly.');
 }
 
-function squidproxy_MetaData()
-{
+function squidproxy_MetaData(){
     return [
         'DisplayName' => 'Squid Proxy',
         'DefaultSSLPort' => '2048', // Default SSL Connection Port
     ];
 }
 
-function squidproxy_ConfigOptions()
-{
-
-    $helper = new Helper();
+function squidproxy_ConfigOptions($params){
+    $helper = new Helper($params);
     // create configurable options
     $helper->configurableOptions();
 
@@ -26,77 +23,36 @@ function squidproxy_ConfigOptions()
     $pid = $_REQUEST['id'];
     $helper->customfieldsProduct($pid);
 
-
-
     return [
-        // 'API URL' => [
-        //     'Type' => 'text', 
-        //     'Size' => '50', 
-        //     'Description' => 'Enter API URL',
-        // ],
-        'API Token' => [
+        'Username' => [
+            'Type' => 'text', 
+            'Size' => '50', 
+            'Description' => 'Enter user name',
+        ],
+        'Password' => [
             'Type' => 'password',
-            'Size' => '225',
+            'Size' => '50',
+            'Description' => 'Enter user password',
         ]
-        // 'Proxy Count' => [
-        //     'Type' => 'text', 
-        //     'Size' => '10', 
-        //     'Default' => '10', 
-        //     'Description' => 'Default no. of proxies',
-        // ],
-        // 'Enable Testing' => [
-        //     'Type' => 'yesno',
-        //     'Description' => 'Tick to enable',
-        // ],
-        // 'Textarea Field' => [
-        //     'Type' => 'textarea',
-        //     'Rows' => '3',
-        //     'Cols' => '60',
-        //     'Description' => 'Write description here...',
-        // ],
     ];
 }
 
 
-function squidproxy_TestConnection(array $params)
-{
-
+function squidproxy_TestConnection(array $params){
     try {
         $errorMsg  = '';
         $success = '';
-        $hostname = $params['serverhostname'];
-        $username = $params['serverusername'];
-        $password = $params['serverpassword'];
-        $port = $params['serverport'];
+        $servername = $params['serverusername'];
+        $serverpass = $params['serverpassword'];
 
-        $url = "http://" . $hostname . ":" . $port . "/auth/signin?username=" . $username . "&password=" . $password;
-
-        $helper = new Helper();
-        $curlRes = $helper->curlCall($url, 'Test Connection');
+        $helper = new Helper($params);
+        $curlRes = $helper->testConnectionCurl($servername, $serverpass);
 
         if ($curlRes['httpcode'] == 200 && $curlRes['result']->message == 'Success') {
             $success = true;
-
-            $tokenExists = Capsule::table('tblproducts')->where('servertype', 'squidproxy')->get();
-
-
-            if ($tokenExists) {
-                foreach ($tokenExists as $token) {
-                    $configVal = Capsule::table('tblproducts')->where('id', $token->id)->value('configoption1');
-
-                    if (!empty($configVal)) {
-                        Capsule::table('tblproducts')->where('id', $token->id)->update([
-                            'configoption1' => $curlRes['result']->data->token
-                        ]);
-                    }
-                }
-            } else {
-                return false;
-            }
         } else {
             $errorMsg = $curlRes['result']->getMessage;
         }
-
 
         return array('success' => $success, 'error' => $errorMsg);
     } catch (Exception $e) {
@@ -107,21 +63,14 @@ function squidproxy_TestConnection(array $params)
 
 
 // Create Account
-function squidproxy_CreateAccount($params)
-{
-    // echo "<pre>";
-    // print_r($params);
-    // die();
+function squidproxy_CreateAccount($params){
     try {
-        $helper = new Helper();
+        $helper = new Helper($params);
 
         $userId = $params['userid'];
-        $tokenVal = $params['configoption1'];
-        $serverhostname = $params['serverhostname'];
-        $serverusername = $params['serverusername'];
-        $serverport = $params['serverport'];
         $productId = $params['pid'];
         $serviceId = $params['serviceid'];
+        $proxy_no = $params['configoptions']['proxy_no'];
 
         if (!empty($helper->getCustomFieldVal($productId, 'Proxy Customer Password', 'password'))) {
             $password = $helper->getCustomFieldVal($productId, 'Proxy Customer Password', 'password');
@@ -132,19 +81,94 @@ function squidproxy_CreateAccount($params)
         $userVals = Capsule::table('tblclients')->where('id', $userId)->first();
         $username = strtolower(str_replace(' ', '', $userVals->firstname.$userVals->lastname.$serviceId));
 
-        $url = "http://".$serverhostname.":".$serverport."/admin/new_user?new_username=".$username."&new_password=".$password."&username=".$serverusername."&token=".$tokenVal;
+        $accountRes = $helper->createAccountCurl($username, $password);
 
-        $curlRes = $helper->curlCall($url, 'Create User');
-
-        if ($curlRes['httpcode'] == 200 && $curlRes['result']->success = true) {
+        if ($accountRes['httpcode'] == 200 && $accountRes['result']->success = true) {
 
             $helper->insertcustomFieldVal($productId , $serviceId, $username, 'Proxy Customer Name', 'text');
             $helper->insertcustomFieldVal($productId , $serviceId, $password, 'Proxy Customer Password', 'password');
-            return 'success';
+
+            // allocation
+            $allocationRes = $helper->allocationCurl($username, $proxy_no);   
+            if($allocationRes['httpcode'] == 200 && $allocationRes['result']->success = true) {
+                // Email template
+                $helper->createSquid_EmailTemplate();
+                // Send Email
+                $helper->sendSquidProxyEmail(
+                    $serviceId,
+                    $params['clientsdetails']['email'],
+                    $username,
+                    $password,
+                    $allocationRes['result']->data->proxyList
+                );
+                return 'success';
+
+            } else {
+                return $allocationRes['result']->message;
+            }
         } else {
-            return $curlRes['result']->message;
+            return $accountRes['result']->message;
         }
     } catch (Exception $e) {
         logActivity("Error account creation: " . $e->getMessage());
     }
 }
+
+
+function squidproxy_SuspendAccount(array $params)
+{
+    try {
+        return true;
+    } catch (Exception $e) {
+        // Record the error in WHMCS's module log.
+        logModuleCall(
+            'proxymodule',
+            __FUNCTION__,
+            $params,
+            $e->getMessage(),
+            $e->getTraceAsString()
+        );
+ 
+        return $e->getMessage();
+    }
+ 
+ 
+}
+ 
+function squidproxy_UnsuspendAccount(array $params)
+{
+    try {
+        return true;
+    } catch (Exception $e) {
+        // Record the error in WHMCS's module log.
+        logModuleCall(
+            'proxymodule',
+            __FUNCTION__,
+            $params,
+            $e->getMessage(),
+            $e->getTraceAsString()
+        );
+ 
+        return $e->getMessage();
+    }
+}
+ 
+ 
+function squidproxy_TerminateAccount(array $params)
+{
+    try {
+        return true;
+    } catch (Exception $e) {
+        // Record the error in WHMCS's module log.
+        logModuleCall(
+            'proxymodule',
+            __FUNCTION__,
+            $params,
+            $e->getMessage(),
+            $e->getTraceAsString()
+        );
+ 
+        return $e->getMessage();
+    }
+}
+ 
