@@ -13,6 +13,8 @@ class Helper
     public $servername = '';
     public $serverpass = '';
     public $token = '';
+    public $userId = '';
+    public $username = ''; 
 
 
     function __construct($params = []) {
@@ -20,6 +22,8 @@ class Helper
         $this->serverpass = $params['configoption2'];
         $this->serverhost = $params['serverhostname'];
         $this->serverport = $params['serverport'];
+        $this->userId = $params['userid'];
+        $this->username = $params['customfields']['proxy_user'];
 
         $url = "http://".$this->serverhost.":".$this->serverport."/auth/signin?username=".$this->servername."&password=".$this->serverpass;
 
@@ -82,13 +86,13 @@ class Helper
         try {
             $fields = [
                 [
-                    'fieldname'   => 'Proxy Customer Name',
+                    'fieldname'   => 'proxy_user|Proxy Customer Name',
                     'description' => 'Enter Proxy Customer Name',
                     'fieldtype'   => 'text',
                     'relid' => $id
                 ],
                 [
-                    'fieldname'   => 'Proxy Customer Password',
+                    'fieldname'   => 'proxy_password|Proxy Customer Password',
                     'description' => 'Enter Proxy Customer Password',
                     'fieldtype'   => 'password',
                     'relid' => $id
@@ -159,6 +163,29 @@ class Helper
         }
     }
 
+    // Terminate Account
+    function terminateCurl($action) {
+        try {
+            $url = "http://".$this->serverhost.":".$this->serverport."/admin/del_user?new_username=".$this->username."&username=".$this->servername."&token=".$this->token;
+
+            $curlResponse = $this->callCurl($url, $action);
+            return $curlResponse;
+        } catch(Exception $e) {
+            logActivity("Error in API request: " . $e->getMessage());
+        }
+    }
+
+    // Get Allocations
+    function getProxiesAllocations($user, $action) {
+        try {
+            $url = "http://".$this->serverhost.":".$this->serverport."/user/getuser?new_username=".$user."&username=".$this->servername."&token=".$this->token;
+            $allocationRes = $this->callCurl($url, $action);
+            return $allocationRes;
+        } catch(Exception $e) {
+            logActivity("Error to get the allocations of user:".$user.", Error:" . $e->getMessage());
+        }
+    }
+
     // Curl Call
     function callCurl($url , $action){
         try {
@@ -175,7 +202,7 @@ class Helper
     
             /** Log the API request and response for the Proxy Server module */
             logModuleCall('Squid Proxy', $action, $url, $response, "", "");
-    
+
             return ['httpcode' => $httpCode, 'result' => json_decode($response)];
 
         } catch(Exception $e) {
@@ -189,7 +216,7 @@ class Helper
             $customField = Capsule::table('tblcustomfields')
             ->where('type', 'product')
             ->where('relid', $pid)
-            ->where('fieldname', $fieldname)
+            ->where('fieldname', 'like', $fieldname)
             ->where('fieldtype', $fieldtype)->first();
     
             if($customField->id) {
@@ -209,7 +236,7 @@ class Helper
             $customField = Capsule::table('tblcustomfields')
                 ->where('type', 'product')
                 ->where('relid', $id)
-                ->where('fieldname', $fieldname)
+                ->where('fieldname', 'like', $fieldname)
                 ->where('fieldtype', $fieldtype)
                 ->first();
 
@@ -237,22 +264,7 @@ class Helper
         }
     }
 
-    function sendAllocationEmail($command, ) {
-        $postData = array(
-            '//example1' => 'example',
-            'messagename' => 'Client Signup Email',
-            'id' => '1',
-            '//example2' => 'example',
-            'customtype' => 'product',
-            'customsubject' => 'Product Welcome Email',
-            'custommessage' => '<p>Thank you for choosing us</p><p>Your custom is appreciated</p><p>{$custommerge}<br />{$custommerge2}</p>',
-            'customvars' => base64_encode(serialize(array("custommerge"=>$populatedvar1, "custommerge2"=>$populatedvar2))),
-        );
-
-        $results = localAPI($command, $postData, $adminUsername);
-        print_r($results);
-    }
-
+    // Email Template for Squid Proxy 
     function createSquid_EmailTemplate() {
         try {
             if (!Capsule::table('tblemailtemplates')->where('type', 'product')->where('name', 'Proxy Access Information')->count()) {
@@ -262,7 +274,7 @@ class Helper
                     'subject' => 'Your Proxy Account is Ready - Access Details Inside',
                     'message' => '<p>Dear {$client_name},</p>
             
-                                  <p>Your Squid Proxy account has been successfully created.</p>
+                                  <p>Thank you for choosing our proxy service. Your Squid Proxy account has been successfully created and is now ready for use.</p>
             
                                   <p><strong>Login Details:</strong></p>
                                   <p>Email: <strong>{$email}</strong></p>
@@ -284,28 +296,85 @@ class Helper
         }
     }
 
+    // Send Email
     function sendSquidProxyEmail($userId, $email, $username, $password, $proxyList) {
-        $postData = [
-            'messagename' => 'Proxy Access Information',
-            'id' => $userId,
-            'customvars' => base64_encode(serialize([
-                'email' => $email,
-                'username' => $username,
-                'password' => $password,
-                'proxy_list' => nl2br($proxyList), 
-            ])),
-        ];
+        try {
+            $proxyList = $this->formatProxyList($proxyList);
+            $postData = [
+                'messagename' => 'Proxy Access Information',
+                'id' => $userId,
+                'customvars' => base64_encode(serialize([
+                    'email' => $email,
+                    'username' => $username,
+                    'password' => $password,
+                    'proxy_list' => $proxyList, 
+                ])),
+            ];
+        
+            $result = localAPI('SendEmail', $postData);
     
-        $result = localAPI('SendEmail', $postData);
-
-        if ($result['result'] == 'success') {
-            logActivity("Proxy Access Email sent successfully to User ID: $userId");
-            return true;
-        } else {
-            logActivity("Failed to send Proxy Access Email. Error: " . $result['message']);
-            return false;
+            if ($result['result'] == 'success') {
+                logActivity("Proxy Access Email sent successfully to User ID: $userId");
+                return true;
+            } else {
+                logActivity("Failed to send Proxy Access Email. Error: " . $result['message']);
+                return false;
+            }
+        } catch(Exception $e) {
+            logActivity("Unable to sent Squid Proxy email" . $e->getMessage());
         }
     }
     
+    // Format Proxy Allocation List
+    function formatProxyList($proxyList) {
+        try {
+            $lines = explode("\n", trim($proxyList));
+            $cleaned = [];
+            foreach ($lines as $line) {
+                $parts = explode(":", $line);
+                if (count($parts) >= 2) {
+                    $cleaned[] = $parts[0] . ":" . $parts[1];
+                }
+            }
+            return implode("\n", $cleaned);
+        } catch(Exception $e) {
+            logActivity("Unable to format proxy allocated list: " . $e->getMessage());
+        }
+    }
 
+    // Delete User Name and Password
+    function deleteProxyField($pid, $sid, $field) {
+        try {
+            $existField = Capsule::table('tblcustomfields')->where('type', 'product')->where('relid', $pid)->where('fieldname', 'like', $field."|%")->first();
+            // echo "<pre>";
+            // print_r($existField);
+            // die();
+            if($existField->id) {
+                $delete = Capsule::table('tblcustomfieldsvalues')->where('fieldid', $existField->id)->where('relid', $sid)->delete();
+            }
+
+            if($delete) {
+                return ['success'=> 1, 'message'=>'User name deleted successfully'];
+            } else {
+                return ['success'=> 0, 'message'=>'No user found'];
+            }
+        } catch(Exception $e) {
+            logActivity("Unable to delete user name details:" . $e->getMessage());
+        }
+    }
+
+    // List the Range of IP Allocations
+    function listAllocationsRange($list) {
+        try {
+            list($startIp, $endIp) = explode('-', $list);
+        
+            $start = (int)substr($startIp, strrpos($startIp, '.') + 1);
+            $end = (int)substr($endIp, strrpos($endIp, '.') + 1);
+            $baseIp = substr($startIp, 0, strrpos($startIp, '.') + 1);
+        
+            return array_map(fn($i) => $baseIp . $i, range($start, $end));
+        } catch(Exception $e) {
+            logActivity("Unable to list the range of allocations:" . $e->getMessage());
+        }
+    }
 }
