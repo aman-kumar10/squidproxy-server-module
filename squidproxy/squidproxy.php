@@ -72,8 +72,8 @@ function squidproxy_CreateAccount($params){
         $serviceId = $params['serviceid'];
         $proxy_no = $params['configoptions']['proxy_no'];
 
-        if (!empty($helper->getCustomFieldVal($productId, 'Proxy Customer Password', 'password'))) {
-            $password = $helper->getCustomFieldVal($productId, 'Proxy Customer Password', 'password');
+        if (!empty($helper->getCustomFieldVal($productId, 'proxy_password|%', 'password'))) {
+            $password = $helper->getCustomFieldVal($productId, 'proxy_password|%', 'password');
         } else {
             $password = $helper->generatePassword(random_int(15, 16));
         }
@@ -85,8 +85,8 @@ function squidproxy_CreateAccount($params){
 
         if ($accountRes['httpcode'] == 200 && $accountRes['result']->success = true) {
 
-            $helper->insertcustomFieldVal($productId , $serviceId, $username, 'Proxy Customer Name', 'text');
-            $helper->insertcustomFieldVal($productId , $serviceId, $password, 'Proxy Customer Password', 'password');
+            $helper->insertcustomFieldVal($productId , $serviceId, $username, 'proxy_user|%', 'text');
+            $helper->insertcustomFieldVal($productId , $serviceId, $password, 'proxy_password|%', 'password');
 
             // allocation
             $allocationRes = $helper->allocationCurl($username, $proxy_no);   
@@ -157,7 +157,26 @@ function squidproxy_UnsuspendAccount(array $params)
 function squidproxy_TerminateAccount(array $params)
 {
     try {
-        return true;
+        $helper = new Helper($params);
+
+        $productId = $params['pid'];
+        $serviceId = $params['serviceid'];
+    
+        $terminateRes = $helper->terminateCurl('Terminate User');
+
+        if($terminateRes['httpcode'] == 200 && $terminateRes['result']->success = true) {
+            $deleteProxyName = $helper->deleteProxyField($productId, $serviceId, 'proxy_user'); 
+            $deleteProxyPass = $helper->deleteProxyField($productId, $serviceId, 'proxy_password'); 
+            if($deleteProxyName['success'] = true && $deleteProxyPass['success'] = true) {
+                return 'success';
+            } else {
+                return 'User does not exist';
+            }
+        } else {
+            return $terminateRes['result']->message;
+        }
+        
+
     } catch (Exception $e) {
         // Record the error in WHMCS's module log.
         logModuleCall(
@@ -172,3 +191,164 @@ function squidproxy_TerminateAccount(array $params)
     }
 }
  
+// Admin Area
+function squidproxy_AdminArea(array $params) {
+    try {
+        // global $CONFIG;
+        // $helper = new Helper($params);
+        
+        // $username = $params['customfields']['proxy_user'];
+        // $password = $params['customfields']['proxy_password'];
+        // $serviceId = $params['serviceid'];
+        
+        // $allocationRes = $helper->getProxiesAllocations($username, 'Get Allocations');
+        // if($allocationRes['httpcode'] && $allocationRes['result']->success = true) {
+        //     $proxy_list = $allocationRes['result']->data->user->allocations[0];
+        //     $allocationList = $helper->listAllocationsRange($proxy_list);
+        // } 
+
+        // $assets_link = $CONFIG["SystemURL"] . "/modules/servers/squidproxy/assets/";
+
+        // return array(
+        //     'templatefile' => "templates/overview.tpl",
+        //     'vars' => array(
+        //         'status' => $allocationRes['httpcode'],
+        //         'serviceid' => $serviceId,
+        //         'username' => $username,
+        //         'password' => $password,
+        //         'allocations' => $allocationList,
+        //         'assets_link' => $assets_link,
+        //     ),
+        // );
+
+    } catch (Exception $e) {
+        // Record the error in WHMCS's module log.
+        logModuleCall(
+            'squidproxy',
+            __FUNCTION__,
+            $params,
+            $e->getMessage(),
+            $e->getTraceAsString()
+        );
+
+        // In an error condition, display an error page.
+        return array(
+            'tabOverviewReplacementTemplate' => 'error.tpl',
+            'templateVariables' => array(
+                'usefulErrorHelper' => $e->getMessage(),
+            ),
+        );
+    }
+}
+
+// Client Area 
+function squidproxy_ClientArea(array $params) {
+    try {
+        global $CONFIG;
+        $helper = new Helper($params);
+        
+        $username = $params['customfields']['proxy_user'];
+        $password = $params['customfields']['proxy_password'];
+        $serviceId = $params['serviceid'];
+        
+        $allocationRes = $helper->getProxiesAllocations($username, 'Get Allocations');
+        if($allocationRes['httpcode'] && $allocationRes['result']->success = true) {
+            $proxy_list = $allocationRes['result']->data->user->allocations[0];
+            $allocationList = $helper->listAllocationsRange($proxy_list);
+        } 
+
+        $assets_link = $CONFIG["SystemURL"] . "/modules/servers/squidproxy/assets/";
+
+        return array(
+            'templatefile' => "templates/overview.tpl",
+            'vars' => array(
+                'status' => $allocationRes['httpcode'],
+                'serviceid' => $serviceId,
+                'username' => $username,
+                'password' => $password,
+                'allocations' => $allocationList,
+                'assets_link' => $assets_link,
+            ),
+        );
+
+    } catch (Exception $e) {
+        // Record the error in WHMCS's module log.
+        logModuleCall(
+            'squidproxy',
+            __FUNCTION__,
+            $params,
+            $e->getMessage(),
+            $e->getTraceAsString()
+        );
+
+        // In an error condition, display an error page.
+        return array(
+            'tabOverviewReplacementTemplate' => 'error.tpl',
+            'templateVariables' => array(
+                'usefulErrorHelper' => $e->getMessage(),
+            ),
+        );
+    }
+}
+
+function squidproxy_AdminServicesTabFields(array $params)
+{
+    try {
+        global $CONFIG;
+        $helper = new Helper($params);
+        
+        $username = $params['customfields']['proxy_user'];
+        $password = $params['customfields']['proxy_password'];
+        $serviceId = $params['serviceid'];
+        
+        $allocationRes = $helper->getProxiesAllocations($username, 'Get Allocations');
+        if($allocationRes['httpcode'] && $allocationRes['result']->success = true) {
+            $proxy_list = $allocationRes['result']->data->user->allocations[0];
+            $allocationList = $helper->listAllocationsRange($proxy_list);
+            if (!empty($allocationList) && is_array($allocationList)) {
+                $proxyHtml = ''; 
+                foreach ($allocationList as $index => $proxy) {
+                    $proxyHtml .= ($index + 1) . '.  <span>' . htmlspecialchars($proxy) . '</span>'.'</br>';
+                }
+            } else {
+                $proxyHtml = 'No proxies allocated.';
+            }
+
+            $html = '<link href="' . $CONFIG["SystemURL"] . '/modules/servers/squidproxy/assets/css/admin-style.css" rel="stylesheet">
+                <div class="container deviceCell">
+                    <h4>Proxy Allocation List</h4>
+                    <table class="ad_on_table_dash table table-striped" width="100%" cellspacing="0" cellpadding="0" border="0">
+                        <tbody>
+                            <tr>
+                                <td style="width:50%" class="hading-td"> <div class="proxy-list">' . $proxyHtml . '</div></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <script src="' . $CONFIG["SystemURL"] . '/modules/servers/proxy/assets/js/admin-script.js"></script>';
+
+        } else {
+            $html = '<div class="alert alert-warning" role="alert">Please provide service id to get proxy info.</div>';
+        }
+
+        return ["Proxy Information" => $html];
+
+    } catch (Exception $e) {
+        // Record the error in WHMCS's module log.
+        logModuleCall(
+            'squidproxy',
+            __FUNCTION__,
+            $params,
+            $e->getMessage(),
+            $e->getTraceAsString()
+        );
+
+        // In an error condition, display an error page.
+        return array(
+            'tabOverviewReplacementTemplate' => 'error.tpl',
+            'templateVariables' => array(
+                'usefulErrorHelper' => $e->getMessage(),
+            ),
+        );
+    }
+}
