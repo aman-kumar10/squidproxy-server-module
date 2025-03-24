@@ -7,6 +7,7 @@ if (!defined("WHMCS")) {
     die('You can not access this file directly.');
 }
 
+// Squid Proxy Meta Data
 function squidproxy_MetaData(){
     return [
         'DisplayName' => 'Squid Proxy',
@@ -14,6 +15,7 @@ function squidproxy_MetaData(){
     ];
 }
 
+// Config options
 function squidproxy_ConfigOptions($params){
     $helper = new Helper($params);
     // create configurable options
@@ -37,16 +39,14 @@ function squidproxy_ConfigOptions($params){
     ];
 }
 
-
+// Test Connection
 function squidproxy_TestConnection(array $params){
     try {
         $errorMsg  = '';
         $success = '';
-        $servername = $params['serverusername'];
-        $serverpass = $params['serverpassword'];
 
         $helper = new Helper($params);
-        $curlRes = $helper->testConnectionCurl($servername, $serverpass);
+        $curlRes = $helper->testConnectionCurl();
 
         if ($curlRes['httpcode'] == 200 && $curlRes['result']->message == 'Success') {
             $success = true;
@@ -60,7 +60,6 @@ function squidproxy_TestConnection(array $params){
         return ['success' => false, 'error' => "Error: " . $e->getMessage()];
     }
 }
-
 
 // Create Account
 function squidproxy_CreateAccount($params){
@@ -83,19 +82,18 @@ function squidproxy_CreateAccount($params){
 
         $accountRes = $helper->createAccountCurl($username, $password);
 
-        if ($accountRes['httpcode'] == 200 && $accountRes['result']->success = true) {
+        if ($accountRes['httpcode'] == 200 && $accountRes['result']->success == true) {
 
-            $helper->insertcustomFieldVal($productId , $serviceId, $username, 'proxy_user|%', 'text');
-            $helper->insertcustomFieldVal($productId , $serviceId, $password, 'proxy_password|%', 'password');
+            $helper->insertcustomFieldVal($username, 'proxy_user|%', 'text');
+            $helper->insertcustomFieldVal( $password, 'proxy_password|%', 'password');
 
             // allocation
             $allocationRes = $helper->allocationCurl($username, $proxy_no);   
-            if($allocationRes['httpcode'] == 200 && $allocationRes['result']->success = true) {
+            if($allocationRes['httpcode'] == 200 && $allocationRes['result']->success == true) {
                 // Email template
                 $helper->createSquid_EmailTemplate();
                 // Send Email
                 $helper->sendSquidProxyEmail(
-                    $serviceId,
                     $params['clientsdetails']['email'],
                     $username,
                     $password,
@@ -114,7 +112,7 @@ function squidproxy_CreateAccount($params){
     }
 }
 
-
+// Suspend Account
 function squidproxy_SuspendAccount(array $params)
 {
     try {
@@ -135,6 +133,7 @@ function squidproxy_SuspendAccount(array $params)
  
 }
  
+// Unsuspend Account
 function squidproxy_UnsuspendAccount(array $params)
 {
     try {
@@ -153,7 +152,7 @@ function squidproxy_UnsuspendAccount(array $params)
     }
 }
  
- 
+// Terminate Account
 function squidproxy_TerminateAccount(array $params)
 {
     try {
@@ -162,11 +161,11 @@ function squidproxy_TerminateAccount(array $params)
         $productId = $params['pid'];
         $serviceId = $params['serviceid'];
     
-        $terminateRes = $helper->terminateCurl('Terminate User');
+        $terminateRes = $helper->terminateAccCurl('Terminate User');
 
-        if($terminateRes['httpcode'] == 200 && $terminateRes['result']->success = true) {
-            $deleteProxyName = $helper->deleteProxyField($productId, $serviceId, 'proxy_user'); 
-            $deleteProxyPass = $helper->deleteProxyField($productId, $serviceId, 'proxy_password'); 
+        if($terminateRes['httpcode'] == 200 && $terminateRes['result']->success == true) {
+            $deleteProxyName = $helper->deleteProxyField( 'proxy_user'); 
+            $deleteProxyPass = $helper->deleteProxyField( 'proxy_password'); 
             if($deleteProxyName['success'] = true && $deleteProxyPass['success'] = true) {
                 return 'success';
             } else {
@@ -190,58 +189,8 @@ function squidproxy_TerminateAccount(array $params)
         return $e->getMessage();
     }
 }
- 
-// Admin Area
-function squidproxy_AdminArea(array $params) {
-    try {
-        // global $CONFIG;
-        // $helper = new Helper($params);
-        
-        // $username = $params['customfields']['proxy_user'];
-        // $password = $params['customfields']['proxy_password'];
-        // $serviceId = $params['serviceid'];
-        
-        // $allocationRes = $helper->getProxiesAllocations($username, 'Get Allocations');
-        // if($allocationRes['httpcode'] && $allocationRes['result']->success = true) {
-        //     $proxy_list = $allocationRes['result']->data->user->allocations[0];
-        //     $allocationList = $helper->listAllocationsRange($proxy_list);
-        // } 
 
-        // $assets_link = $CONFIG["SystemURL"] . "/modules/servers/squidproxy/assets/";
-
-        // return array(
-        //     'templatefile' => "templates/overview.tpl",
-        //     'vars' => array(
-        //         'status' => $allocationRes['httpcode'],
-        //         'serviceid' => $serviceId,
-        //         'username' => $username,
-        //         'password' => $password,
-        //         'allocations' => $allocationList,
-        //         'assets_link' => $assets_link,
-        //     ),
-        // );
-
-    } catch (Exception $e) {
-        // Record the error in WHMCS's module log.
-        logModuleCall(
-            'squidproxy',
-            __FUNCTION__,
-            $params,
-            $e->getMessage(),
-            $e->getTraceAsString()
-        );
-
-        // In an error condition, display an error page.
-        return array(
-            'tabOverviewReplacementTemplate' => 'error.tpl',
-            'templateVariables' => array(
-                'usefulErrorHelper' => $e->getMessage(),
-            ),
-        );
-    }
-}
-
-// Client Area 
+// Client Area Proxy Details
 function squidproxy_ClientArea(array $params) {
     try {
         global $CONFIG;
@@ -251,8 +200,8 @@ function squidproxy_ClientArea(array $params) {
         $password = $params['customfields']['proxy_password'];
         $serviceId = $params['serviceid'];
         
-        $allocationRes = $helper->getProxiesAllocations($username, 'Get Allocations');
-        if($allocationRes['httpcode'] && $allocationRes['result']->success = true) {
+        $allocationRes = $helper->getProxyAllocations( 'Get Allocations');
+        if($allocationRes['httpcode'] == 200 && $allocationRes['result']->success == true) {
             $proxy_list = $allocationRes['result']->data->user->allocations[0];
             $allocationList = $helper->listAllocationsRange($proxy_list);
         } 
@@ -291,6 +240,7 @@ function squidproxy_ClientArea(array $params) {
     }
 }
 
+// Admin Area Proxy Details
 function squidproxy_AdminServicesTabFields(array $params)
 {
     try {
@@ -299,36 +249,78 @@ function squidproxy_AdminServicesTabFields(array $params)
         
         $username = $params['customfields']['proxy_user'];
         $password = $params['customfields']['proxy_password'];
-        $serviceId = $params['serviceid'];
-        
-        $allocationRes = $helper->getProxiesAllocations($username, 'Get Allocations');
-        if($allocationRes['httpcode'] && $allocationRes['result']->success = true) {
-            $proxy_list = $allocationRes['result']->data->user->allocations[0];
-            $allocationList = $helper->listAllocationsRange($proxy_list);
-            if (!empty($allocationList) && is_array($allocationList)) {
-                $proxyHtml = ''; 
-                foreach ($allocationList as $index => $proxy) {
-                    $proxyHtml .= ($index + 1) . '.  <span>' . htmlspecialchars($proxy) . '</span>'.'</br>';
-                }
-            } else {
-                $proxyHtml = 'No proxies allocated.';
-            }
 
-            $html = '<link href="' . $CONFIG["SystemURL"] . '/modules/servers/squidproxy/assets/css/admin-style.css" rel="stylesheet">
-                <div class="container deviceCell">
-                    <h4>Proxy Allocation List</h4>
-                    <table class="ad_on_table_dash table table-striped" width="100%" cellspacing="0" cellpadding="0" border="0">
-                        <tbody>
-                            <tr>
-                                <td style="width:50%" class="hading-td"> <div class="proxy-list">' . $proxyHtml . '</div></td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-                <script src="' . $CONFIG["SystemURL"] . '/modules/servers/proxy/assets/js/admin-script.js"></script>';
-
+        if($username == '' && $password == '') {
+            $html = '<div class="alert alert-warning" role="alert"> This user does not have an active proxy account. </div>';
+        } elseif($username == '') {
+            $html = '<div class="alert alert-warning" role="alert"> Username field is empty.</div>';
+        } elseif(($password == '')) {
+            $html = '<div class="alert alert-warning" role="alert"> Password field is empty. </div>';
         } else {
-            $html = '<div class="alert alert-warning" role="alert">Please provide service id to get proxy info.</div>';
+            $getUserDetails = $helper->getProxyAllocations( 'Get Allocations');
+    
+            $password = $getUserDetails['result']->data->user->password;
+            $username = $getUserDetails['result']->data->user->username;
+    
+            if($getUserDetails['httpcode'] == 200 && $getUserDetails['result']->success == true) {
+
+                $proxy_list = $getUserDetails['result']->data->user->allocations[0];
+                $allocationList = $helper->listAllocationsRange($proxy_list);
+                if (!empty($allocationList) && is_array($allocationList)) {
+                    $proxyHtml = ''; 
+                    foreach ($allocationList as $index => $proxy) {
+                        $proxyHtml .= htmlspecialchars($proxy).'</br>';
+                    }
+                } else {
+                    $proxyHtml = '<div class="alert alert-warning" role="alert">No proxies allocated.</div>';
+                }
+    
+                $html = '<link href="' . $CONFIG["SystemURL"] . '/modules/servers/squidproxy/assets/css/admin-style.css" rel="stylesheet">
+                    <div class="container deviceCell">
+                        <h4>Proxy Allocation List</h4>
+                        <table class="ad_on_table_dash table table-striped" width="100%" cellspacing="0" cellpadding="0" border="0">
+                            <tbody>
+                                <tr>
+                                    <td style="width:50%" class="hading-td">
+                                        <div class="container proxy-details">
+                                            <table class="ad_on_table_dash table table-striped" width="100%" cellspacing="0" cellpadding="0" border="0">
+                                                <tbody>
+                                                    <tr>
+                                                        <td class="hading-td">Username :</td>
+                                                        <td class="hading-td">' . $username . '</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td class="hading-td">Password :</td>
+                                                        
+                                                        <td class="hading-td">
+                                                            <span id="passwordField" class="hidden-password">.................</span>
+                                                            <button id="togglePassword" type="button" 
+                                                                data-password="' . htmlspecialchars($password, ENT_QUOTES, "UTF-8") . '">
+                                                                <i id="eyeIcon" class="fa fa-eye"></i>
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td class="hading-td">Proxy List :</td>
+                                                        <td class="hading-td text-area">
+                                                            <div class="list-textarea">
+                                                                ' . $proxyHtml . '
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <script src="' . $CONFIG["SystemURL"] . '/modules/servers/squidproxy/assets/js/admin-script.js"></script>';
+    
+            } else {
+                $html = '<div class="alert alert-warning" role="alert">'. $getUserDetails['result']->message .'</div>';
+            }        
         }
 
         return ["Proxy Information" => $html];
@@ -350,5 +342,40 @@ function squidproxy_AdminServicesTabFields(array $params)
                 'usefulErrorHelper' => $e->getMessage(),
             ),
         );
+    }
+}
+
+// Change password
+function squidproxy_ChangePassword(array $params)
+{
+    try {
+        $helper = new Helper($params);
+        $password = $params['password'];
+
+        $changepssRes = $helper->changeUserPasswordCurl($password, 'Change Password');
+        
+        if($changepssRes['httpcode'] == 200 && $changepssRes['result']->success == true) {
+            $updatePass = $helper->insertcustomFieldVal($password, 'proxy_password|%', 'password');
+           
+            if($updatePass == true) {
+                return 'success';
+            } else {
+                return "Error in update user password in custom field.";
+            }
+        } else {
+            return $changepssRes['result']->message;
+        }
+
+    } catch (Exception $e) {
+        // Record the error in WHMCS's module log.
+        logModuleCall(
+            'squidproxy',
+            __FUNCTION__,
+            $params,
+            $e->getMessage(),
+            $e->getTraceAsString()
+        );
+
+        return $e->getMessage();
     }
 }

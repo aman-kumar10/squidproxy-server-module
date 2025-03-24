@@ -12,7 +12,7 @@ document.addEventListener("DOMContentLoaded", function () {
             eyeIcon.classList.add("fa-eye");
         } else {
             const encodedPassword = toggleButton.getAttribute("data-password");
-            const decodedPassword = atob(encodedPassword); // Decode Base64
+            const decodedPassword = encodedPassword; // Decode Base64
             passwordField.textContent = decodedPassword;
             eyeIcon.classList.remove("fa-eye");
             eyeIcon.classList.add("fa-eye-slash");
