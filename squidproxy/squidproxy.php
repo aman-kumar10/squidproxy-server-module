@@ -253,9 +253,9 @@ function squidproxy_AdminServicesTabFields(array $params)
         if($username == '' && $password == '') {
             $html = '<div class="alert alert-warning" role="alert"> This user does not have an active proxy account. </div>';
         } elseif($username == '') {
-            $html = '<div class="alert alert-warning" role="alert"> Username field is empty.</div>';
+            $html = '<div class="alert alert-warning" role="alert"> Proxy Customer Name is Empty!</div>';
         } elseif(($password == '')) {
-            $html = '<div class="alert alert-warning" role="alert"> Password field is empty. </div>';
+            $html = '<div class="alert alert-warning" role="alert"> Proxy Customer Password is Empty. </div>';
         } else {
             $getUserDetails = $helper->getProxyAllocations( 'Get Allocations');
     
@@ -276,6 +276,7 @@ function squidproxy_AdminServicesTabFields(array $params)
                 }
     
                 $html = '<link href="' . $CONFIG["SystemURL"] . '/modules/servers/squidproxy/assets/css/admin-style.css" rel="stylesheet">
+                        <script src="' . $CONFIG["SystemURL"] . '/modules/servers/squidproxy/assets/js/admin-script.js"></script>
                     <div class="container deviceCell">
                         <h4>Proxy Allocation List</h4>
                         <table class="ad_on_table_dash table table-striped" width="100%" cellspacing="0" cellpadding="0" border="0">
@@ -291,7 +292,6 @@ function squidproxy_AdminServicesTabFields(array $params)
                                                     </tr>
                                                     <tr>
                                                         <td class="hading-td">Password :</td>
-                                                        
                                                         <td class="hading-td">
                                                             <span id="passwordField" class="hidden-password">.................</span>
                                                             <button id="togglePassword" type="button" 
@@ -315,8 +315,7 @@ function squidproxy_AdminServicesTabFields(array $params)
                                 </tr>
                             </tbody>
                         </table>
-                    </div>
-                    <script src="' . $CONFIG["SystemURL"] . '/modules/servers/squidproxy/assets/js/admin-script.js"></script>';
+                    </div>';
     
             } else {
                 $html = '<div class="alert alert-warning" role="alert">'. $getUserDetails['result']->message .'</div>';
@@ -356,12 +355,9 @@ function squidproxy_ChangePassword(array $params)
         
         if($changepssRes['httpcode'] == 200 && $changepssRes['result']->success == true) {
             $updatePass = $helper->insertcustomFieldVal($password, 'proxy_password|%', 'password');
-           
-            if($updatePass == true) {
-                return 'success';
-            } else {
-                return "Error in update user password in custom field.";
-            }
+
+            return ($updatePass || empty($updatePass)) ? 'success' : 'Unable to change password in custom fields!';
+
         } else {
             return $changepssRes['result']->message;
         }

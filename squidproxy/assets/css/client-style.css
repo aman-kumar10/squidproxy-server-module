@@ -96,3 +96,7 @@ td .list-textarea {
 td .list-textarea span {
     font-weight: 600;
 }
+.ad_on_table_dash tbody tr td {
+    text-align: left;
+    width: 50%;
+}
