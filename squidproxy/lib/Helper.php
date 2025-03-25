@@ -38,7 +38,7 @@ class Helper
     }
 
     // Create Configurable Options
-    function configurableOptions(){
+    function createConfigOptions(){
         try {
             $pid = isset($_REQUEST['id']) ? (int) $_REQUEST['id'] : null;
 
@@ -88,7 +88,7 @@ class Helper
         }
     }
 
-    // custom fields client type
+    // Create Custom fields (Product type)
     function customfieldsProduct($id){
         try {
             $fields = [
@@ -154,7 +154,6 @@ class Helper
     function createAccountCurl($username, $password){
         try {
             $url = "http://".$this->serverhost.":".$this->serverport."/admin/new_user?new_username=".$username."&new_password=".$password."&username=".$this->servername."&token=".$this->token;
-
             $curlResponse = $this->callCurl($url, 'Create Account');
             return $curlResponse;
 
@@ -167,7 +166,6 @@ class Helper
     function allocationCurl($username, $proxy_no){
         try {
             $url = "http://".$this->serverhost.":".$this->serverport."/admin/auto_allocate?new_username=".$username."&new_allocation_size=".$proxy_no."&username=".$this->servername."&token=".$this->token;
-
             $curlResponse = $this->callCurl($url, 'Allocation');
             return $curlResponse;
 
@@ -180,7 +178,6 @@ class Helper
     function terminateAccCurl($action) {
         try {
             $url = "http://".$this->serverhost.":".$this->serverport."/admin/del_user?new_username=".$this->username."&username=".$this->servername."&token=".$this->token;
-
             $curlResponse = $this->callCurl($url, $action);
             return $curlResponse;
 
@@ -193,7 +190,6 @@ class Helper
     function getProxyAllocations($action) {
         try {
             $url = "http://".$this->serverhost.":".$this->serverport."/user/getuser?new_username=".$this->username."&username=".$this->servername."&token=".$this->token;
-
             $curlResponse = $this->callCurl($url, $action);
             return $curlResponse;
 
@@ -206,7 +202,6 @@ class Helper
     function changeUserPasswordCurl($password, $action) {
         try {
             $url = "http://".$this->serverhost.":".$this->serverport."/admin/user_write_password?new_username=".$this->username."&new_password=".$password."&username=".$this->servername."&token=".$this->token;
-
             $curlResponse = $this->callCurl($url, $action);
             return $curlResponse;
 
@@ -237,7 +232,32 @@ class Helper
             logActivity("Error in API request: " . $e->getMessage());
         }
     }
+    
+    // Get Custom Fields
+    function getCustomFieldVal($fieldname, $fieldtype) {
+        try {
+            $customField = Capsule::table('tblcustomfields')
+            ->where('type', 'product')
+            ->where('relid', $this->productId)
+            ->where('fieldname', 'like', $fieldname)
+            ->where('fieldtype', $fieldtype)
+            ->first();
+            
+            if (!$customField) {
+                return null;
+            }
 
+            return Capsule::table('tblcustomfieldsvalues')
+            ->where('fieldid', $customField->id)
+            ->where('relid', $this->productId)
+            ->value('value') ?? null;
+            
+        } catch (Exception $e) {
+            logActivity("Error fetching custom field value: " . $e->getMessage());
+            return null;
+        }
+    }
+    
     // Update or Insert values in custom fields
     function insertcustomFieldVal($value, $fieldname, $fieldtype) {
         try {
@@ -263,30 +283,6 @@ class Helper
         }
     }
 
-    // Get Custom Fields
-    function getCustomFieldVal($id, $fieldname, $fieldtype) {
-        try {
-            $customField = Capsule::table('tblcustomfields')
-                ->where('type', 'product')
-                ->where('relid', $id)
-                ->where('fieldname', 'like', $fieldname)
-                ->where('fieldtype', $fieldtype)
-                ->first();
-
-            if (!$customField) {
-                return null;
-            }
-
-            return Capsule::table('tblcustomfieldsvalues')
-                ->where('fieldid', $customField->id)
-                ->where('relid', $id)
-                ->value('value') ?? null;
-        } catch (Exception $e) {
-            logActivity("Error fetching custom field value: " . $e->getMessage());
-            return null;
-        }
-    }
-
     // Generate Random Password
     function generatePassword($length = 12){
         try {
@@ -298,7 +294,7 @@ class Helper
     }
 
     // Email Template for Squid Proxy 
-    function createSquid_EmailTemplate() {
+    function squidProxy_EmailTemplate() {
         try {
             if (!Capsule::table('tblemailtemplates')->where('type', 'product')->where('name', 'Proxy Access Information')->count()) {
                 Capsule::table('tblemailtemplates')->insert([
@@ -353,6 +349,7 @@ class Helper
                 logActivity("Failed to send Proxy Access Email. Error: " . $result['message']);
                 return false;
             }
+
         } catch(Exception $e) {
             logActivity("Unable to sent Squid Proxy email" . $e->getMessage());
         }
@@ -370,6 +367,7 @@ class Helper
                 }
             }
             return implode("\n", $cleaned);
+            
         } catch(Exception $e) {
             logActivity("Unable to format proxy allocated list: " . $e->getMessage());
         }

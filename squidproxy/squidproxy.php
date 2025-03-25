@@ -18,23 +18,22 @@ function squidproxy_MetaData(){
 // Config options
 function squidproxy_ConfigOptions($params){
     $helper = new Helper($params);
-    // create configurable options
-    $helper->configurableOptions();
-
-    // custom fields
+    // Create Config Options
+    $helper->createConfigOptions();
     $pid = $_REQUEST['id'];
+    // Custom fields (Product type)
     $helper->customfieldsProduct($pid);
 
     return [
         'Username' => [
             'Type' => 'text', 
             'Size' => '50', 
-            'Description' => 'Enter user name',
+            'Description' => 'Enter API username',
         ],
         'Password' => [
             'Type' => 'password',
             'Size' => '50',
-            'Description' => 'Enter user password',
+            'Description' => 'Enter API password',
         ]
     ];
 }
@@ -53,8 +52,8 @@ function squidproxy_TestConnection(array $params){
         } else {
             $errorMsg = $curlRes['result']->getMessage;
         }
-
         return array('success' => $success, 'error' => $errorMsg);
+
     } catch (Exception $e) {
 
         return ['success' => false, 'error' => "Error: " . $e->getMessage()];
@@ -67,12 +66,11 @@ function squidproxy_CreateAccount($params){
         $helper = new Helper($params);
 
         $userId = $params['userid'];
-        $productId = $params['pid'];
         $serviceId = $params['serviceid'];
         $proxy_no = $params['configoptions']['proxy_no'];
 
-        if (!empty($helper->getCustomFieldVal($productId, 'proxy_password|%', 'password'))) {
-            $password = $helper->getCustomFieldVal($productId, 'proxy_password|%', 'password');
+        if (!empty($helper->getCustomFieldVal('proxy_password|%', 'password'))) {
+            $password = $helper->getCustomFieldVal('proxy_password|%', 'password');
         } else {
             $password = $helper->generatePassword(random_int(15, 16));
         }
@@ -87,11 +85,11 @@ function squidproxy_CreateAccount($params){
             $helper->insertcustomFieldVal($username, 'proxy_user|%', 'text');
             $helper->insertcustomFieldVal( $password, 'proxy_password|%', 'password');
 
-            // allocation
+            // allocation list
             $allocationRes = $helper->allocationCurl($username, $proxy_no);   
             if($allocationRes['httpcode'] == 200 && $allocationRes['result']->success == true) {
                 // Email template
-                $helper->createSquid_EmailTemplate();
+                $helper->squidProxy_EmailTemplate();
                 // Send Email
                 $helper->sendSquidProxyEmail(
                     $params['clientsdetails']['email'],
@@ -157,9 +155,6 @@ function squidproxy_TerminateAccount(array $params)
 {
     try {
         $helper = new Helper($params);
-
-        $productId = $params['pid'];
-        $serviceId = $params['serviceid'];
     
         $terminateRes = $helper->terminateAccCurl('Terminate User');
 
@@ -174,7 +169,6 @@ function squidproxy_TerminateAccount(array $params)
         } else {
             return $terminateRes['result']->message;
         }
-        
 
     } catch (Exception $e) {
         // Record the error in WHMCS's module log.
