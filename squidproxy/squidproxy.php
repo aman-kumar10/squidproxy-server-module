@@ -194,10 +194,9 @@ function squidproxy_ClientArea(array $params) {
         $password = $params['customfields']['proxy_password'];
         $serviceId = $params['serviceid'];
         
-        $allocationRes = $helper->getProxyAllocations( 'Get Allocations');
+        $allocationRes = $helper->getProxyList( 'Get Allocations');
         if($allocationRes['httpcode'] == 200 && $allocationRes['result']->success == true) {
-            $proxy_list = $allocationRes['result']->data->user->allocations[0];
-            $allocationList = $helper->listAllocationsRange($proxy_list);
+            $proxy_list = $allocationRes['result']->data->proxies[0];
         } 
 
         $assets_link = $CONFIG["SystemURL"] . "/modules/servers/squidproxy/assets/";
@@ -209,7 +208,7 @@ function squidproxy_ClientArea(array $params) {
                 'serviceid' => $serviceId,
                 'username' => $username,
                 'password' => $password,
-                'allocations' => $allocationList,
+                'proxy_list' => $proxy_list,
                 'assets_link' => $assets_link,
             ),
         );
@@ -251,20 +250,14 @@ function squidproxy_AdminServicesTabFields(array $params)
         } elseif(($password == '')) {
             $html = '<div class="alert alert-warning" role="alert"> Proxy Customer Password is Empty. </div>';
         } else {
-            $getUserDetails = $helper->getProxyAllocations( 'Get Allocations');
-    
-            $password = $getUserDetails['result']->data->user->password;
-            $username = $getUserDetails['result']->data->user->username;
-    
+            $getUserDetails = $helper->getProxyList( 'Get Allocations');
+
             if($getUserDetails['httpcode'] == 200 && $getUserDetails['result']->success == true) {
 
-                $proxy_list = $getUserDetails['result']->data->user->allocations[0];
-                $allocationList = $helper->listAllocationsRange($proxy_list);
-                if (!empty($allocationList) && is_array($allocationList)) {
+                $proxy_list = $getUserDetails['result']->data->proxies[0];
+                if (!empty($proxy_list)) {
                     $proxyHtml = ''; 
-                    foreach ($allocationList as $index => $proxy) {
-                        $proxyHtml .= htmlspecialchars($proxy).'</br>';
-                    }
+                        $proxyHtml .= htmlspecialchars($proxy_list);
                 } else {
                     $proxyHtml = '<div class="alert alert-warning" role="alert">No proxies allocated.</div>';
                 }
@@ -297,8 +290,12 @@ function squidproxy_AdminServicesTabFields(array $params)
                                                     <tr>
                                                         <td class="hading-td">Proxy List :</td>
                                                         <td class="hading-td text-area">
-                                                            <div class="list-textarea">
+                                                            <div class="list-textarea" id="proxy_List">
                                                                 ' . $proxyHtml . '
+                                                            </div>
+                                                            <div class="custom-proxy-btns">
+                                                                <button type="button" id="copyProxyList" class="btn btn-info"><i class="fa fa-copy"></i> Copy</button>
+                                                                <button type="button" id="downloadProxyList" class="btn btn-success"><i class="fa fa-download"></i> Download</button>
                                                             </div>
                                                         </td>
                                                     </tr>

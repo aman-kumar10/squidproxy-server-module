@@ -37,9 +37,11 @@
                 <td class="hading-td">Proxy List :</td>
                 <td class="hading-td text-area">
                     <div class="list-textarea">
-                        {foreach from=$allocations item=proxy key=index}
-                            <span>{$proxy}</span> </br>
-                        {/foreach}
+                        <span id="proxy_List">{$proxy_list} </span>
+                    </div>
+                    <div class="custom-proxy-btns">
+                        <button id="copyProxyList" class="btn btn-info"><i class="fa fa-copy"></i> Copy</button>
+                        <button id="downloadProxyList" class="btn btn-success"><i class="fa fa-download"></i> Download</button>
                     </div>
                 </td>
             </tr>
