@@ -187,9 +187,9 @@ class Helper
     }
 
     // Get Allocations
-    function getProxyAllocations($action) {
+    function getProxyList($action) {
         try {
-            $url = "http://".$this->serverhost.":".$this->serverport."/user/getuser?new_username=".$this->username."&username=".$this->servername."&token=".$this->token;
+            $url = "http://".$this->serverhost.":".$this->serverport."/admin/proxylist?new_username=".$this->username."&username=".$this->servername."&token=".$this->token;
             $curlResponse = $this->callCurl($url, $action);
             return $curlResponse;
 
@@ -391,19 +391,5 @@ class Helper
             logActivity("Unable to delete user name details:" . $e->getMessage());
         }
     }
-
-    // List the Range of IP Allocations
-    function listAllocationsRange($list) {
-        try {
-            list($startIp, $endIp) = explode('-', $list);
-            $start = (int)substr($startIp, strrpos($startIp, '.') + 1);
-            $end = (int)substr($endIp, strrpos($endIp, '.') + 1);
-            $baseIp = substr($startIp, 0, strrpos($startIp, '.') + 1);
-        
-            return array_map(fn($i) => $baseIp . $i, range($start, $end));
-
-        } catch(Exception $e) {
-            logActivity("Unable to list the range of allocations:" . $e->getMessage());
-        }
-    }
+    
 }

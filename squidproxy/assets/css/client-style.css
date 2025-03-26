@@ -87,16 +87,23 @@ h4 {
 td.hading-td {
     vertical-align: middle;
 }
-
 td .list-textarea {
     max-height: 120px;
     overflow-y: auto;
 }
-
-td .list-textarea span {
-    font-weight: 600;
-}
 .ad_on_table_dash tbody tr td {
     text-align: left;
-    width: 50%;
+    width: 15%;
+}
+.custom-proxy-btns {
+    margin: 10px 0px 0px;
+}
+#proxy_message {
+    margin-top: 13px;
+    border-radius: 7px;
+    background-color: #d4edda;
+}
+#proxy_message p.text-success {
+    font-size: 13px;
+    margin: 0px 10px 0px;
 }
