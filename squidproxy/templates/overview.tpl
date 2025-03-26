@@ -43,6 +43,7 @@
                         <button id="copyProxyList" class="btn btn-info"><i class="fa fa-copy"></i> Copy</button>
                         <button id="downloadProxyList" class="btn btn-success"><i class="fa fa-download"></i> Download</button>
                     </div>
+                    <div class="proxy-message" id="proxy_message"></div>
                 </td>
             </tr>
         </tbody>

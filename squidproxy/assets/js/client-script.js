@@ -21,8 +21,9 @@ $(document).ready(function() {
         tempInput.remove();
     
         $btn.html('<i class="fa fa-check"></i> Copied');
-    
+        $('#proxy_message').html('<p class="text-success"> <i class="fa fa-check"></i> Proxy list copied to clipboard.</p>');
         setTimeout(function() {
+            $('#proxy_message').html('');
             $btn.html('<i class="fa fa-copy"></i> Copy');
         }, 3000);
     });
@@ -40,6 +41,11 @@ $(document).ready(function() {
 
             link[0].click();
             link.remove();
+
+            $('#proxy_message').html('<p class="text-success"> <i class="fa fa-check"></i> Proxy list downloaded successfully.</p>');
+            setTimeout(function() {
+                $('#proxy_message').html('');
+            }, 3000);
 
         } else {
             alert("No proxy details available to download.");

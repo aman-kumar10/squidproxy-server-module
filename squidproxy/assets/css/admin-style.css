@@ -102,3 +102,12 @@ td .list-textarea span {
 .custom-proxy-btns {
     margin: 10px 0px 0px;
 }
+#proxy_message {
+    margin-top: 13px;
+    border-radius: 7px;
+    background-color: #d4edda;
+}
+#proxy_message p.text-success {
+    font-size: 13px;
+    margin: 0px 10px 0px;
+}
