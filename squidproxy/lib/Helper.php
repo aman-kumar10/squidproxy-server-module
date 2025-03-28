@@ -24,17 +24,17 @@ class Helper
         $this->serverport = $params['serverport'];
         $this->userId = $params['userid'];
         $this->username = $params['customfields']['proxy_user'];
-        
+
         $this->serviceId = $params['serviceid'];
         $this->productId = $params['pid'];
 
         $url = "http://".$this->serverhost.":".$this->serverport."/auth/signin?username=".$this->servername."&password=".$this->serverpass;
 
         $getToken = $this->callCurl($url , 'Get Token');
-        
+
         if ($getToken['httpcode'] == 200 && $getToken['result']->message == 'Success') {
             $this->token = $getToken['result']->data->token;
-        } 
+        }
     }
 
     // Create Configurable Options
@@ -219,11 +219,11 @@ class Helper
             curl_setopt($ch, CURLOPT_TIMEOUT, 1000);
             curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
             curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
-    
+
             $response = curl_exec($ch);
             $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
             curl_close($ch);
-    
+
             /** Log the API request and response for the Proxy Server module */
             logModuleCall('Squid Proxy', $action, $url, $response, "", "");
             return ['httpcode' => $httpCode, 'result' => json_decode($response)];
@@ -232,7 +232,7 @@ class Helper
             logActivity("Error in API request: " . $e->getMessage());
         }
     }
-    
+
     // Get Custom Fields
     function getCustomFieldVal($fieldname, $fieldtype) {
         try {
@@ -242,7 +242,7 @@ class Helper
             ->where('fieldname', 'like', $fieldname)
             ->where('fieldtype', $fieldtype)
             ->first();
-            
+
             if (!$customField) {
                 return null;
             }
@@ -251,13 +251,13 @@ class Helper
             ->where('fieldid', $customField->id)
             ->where('relid', $this->productId)
             ->value('value') ?? null;
-            
+
         } catch (Exception $e) {
             logActivity("Error fetching custom field value: " . $e->getMessage());
             return null;
         }
     }
-    
+
     // Update or Insert values in custom fields
     function insertcustomFieldVal($value, $fieldname, $fieldtype) {
         try {
@@ -267,14 +267,14 @@ class Helper
                 ->where('fieldname', 'like', $fieldname)
                 ->where('fieldtype', $fieldtype)
                 ->first();
-    
+
             if ($customField && isset($customField->id)) {
                 $updated = Capsule::table('tblcustomfieldsvalues')->updateOrInsert(
                     ['fieldid' => $customField->id, 'relid' => $this->serviceId],
                     ['value' => $value]
                 );
                 return $updated ? true : false;
-            } 
+            }
             return false;
 
         } catch (Exception $e) {
@@ -319,7 +319,7 @@ class Helper
                     'custom' => 1
                 ]);
             }
-            
+
         } catch (\Exception $e) {
             logActivity("Error Proxy Access Information Email" . $e->getMessage());
         }
@@ -336,12 +336,12 @@ class Helper
                     'email' => $email,
                     'username' => $username,
                     'password' => $password,
-                    'proxy_list' => $proxyList, 
+                    'proxy_list' => $proxyList,
                 ])),
             ];
-        
+
             $result = localAPI('SendEmail', $postData);
-    
+
             if ($result['result'] == 'success') {
                 logActivity("Proxy Access Email sent successfully to User ID: ". $this->serviceId);
                 return true;
@@ -354,7 +354,7 @@ class Helper
             logActivity("Unable to sent Squid Proxy email" . $e->getMessage());
         }
     }
-    
+
     // Format Proxy Allocation List
     function formatProxyList($proxyList) {
         try {
@@ -367,7 +367,7 @@ class Helper
                 }
             }
             return implode("\n", $cleaned);
-            
+
         } catch(Exception $e) {
             logActivity("Unable to format proxy allocated list: " . $e->getMessage());
         }
@@ -391,5 +391,5 @@ class Helper
             logActivity("Unable to delete user name details:" . $e->getMessage());
         }
     }
-    
+
 }
