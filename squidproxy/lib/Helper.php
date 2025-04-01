@@ -13,13 +13,15 @@ class Helper
     public $serverpass = '';
     public $token = '';
     public $userId = '';
-    public $username = ''; 
-    public $serviceId = ''; 
-    public $productId = ''; 
+    public $username = '';
+    public $serviceId = '';
+    public $productId = '';
+    public $proxynum = '';
 
-    function __construct($params = []) {
-        $this->servername = $params['serverusername'];
-        $this->serverpass = $params['serverpassword'];
+    function __construct($params = [])
+    {
+        $this->servername = $params['configoption1'];
+        $this->serverpass = $params['configoption2'];
         $this->serverhost = $params['serverhostname'];
         $this->serverport = $params['serverport'];
         $this->userId = $params['userid'];
@@ -28,68 +30,20 @@ class Helper
         $this->serviceId = $params['serviceid'];
         $this->productId = $params['pid'];
 
-        $url = "http://".$this->serverhost.":".$this->serverport."/auth/signin?username=".$this->servername."&password=".$this->serverpass;
+        $this->proxynum = $params['configoptions']['proxy_no'];
 
-        $getToken = $this->callCurl($url , 'Get Token');
+        $url = "http://" . $this->serverhost . ":" . $this->serverport . "/auth/signin?username=" . $this->servername . "&password=" . $this->serverpass;
+        
+        $getToken = $this->callCurl($url, 'Get Token');
 
         if ($getToken['httpcode'] == 200 && $getToken['result']->message == 'Success') {
             $this->token = $getToken['result']->data->token;
         }
     }
 
-    // Create Configurable Options
-    function createConfigOptions(){
-        try {
-            $pid = isset($_REQUEST['id']) ? (int) $_REQUEST['id'] : null;
-
-            if (!$pid) {
-                logActivity("Error: Product ID is missing or invalid");
-                return;
-            }
-
-            // configurable group
-            $group = Capsule::table('tblproductconfiggroups')->where('name', 'Squid Proxy')->first();
-            if (!$group) {
-                $groupId = Capsule::table('tblproductconfiggroups')->insertGetId([
-                    'name' => 'Squid Proxy',
-                    'description' => 'Squid proxy server module config options',
-                ]);
-            } else {
-                $groupId = $group->id;
-            }
-
-            // configurable product
-            $productExists = Capsule::table('tblproductconfiglinks')->where('gid', $groupId)->where('pid', $pid)->exists();
-
-            if (!$productExists) {
-                Capsule::table('tblproductconfiglinks')->insert([
-                    'gid' => $groupId,
-                    'pid' => $pid,
-                ]);
-            }
-
-            // configurable option
-            $configExists = Capsule::table('tblproductconfigoptions')->where('gid', $groupId)->where('optionname', 'proxy_no|No. of Proxy')->exists();
-
-            if (!$configExists) {
-                Capsule::table('tblproductconfigoptions')->insert([
-                    'gid' => $groupId,
-                    'optionname' => 'proxy_no|No. of Proxy',
-                    'optiontype' => '4',
-                    'qtyminimum' => '1',
-                    'qtymaximum' => '255',
-                ]);
-            }
-
-            logActivity("Configurable options set successfully.");
-
-        } catch (Exception $e) {
-            logActivity("Error in configurableOptions: " . $e->getMessage());
-        }
-    }
-
     // Create Custom fields (Product type)
-    function customfieldsProduct($id){
+    function customfieldsProduct($id)
+    {
         try {
             $fields = [
                 [
@@ -128,7 +82,6 @@ class Helper
                     ]);
 
                     logActivity("Custom product field '{$field['fieldname']}' created successfully.");
-
                 } else {
                     logActivity("Custom product field '{$field['fieldname']}' already exists.");
                 }
@@ -139,79 +92,80 @@ class Helper
     }
 
     // Test Connection
-    function testConnectionCurl(){
+    function testConnectionCurl()
+    {
         try {
-            $url = "http://".$this->serverhost.":".$this->serverport."/auth/signin?username=".$this->servername."&password=".$this->serverpass;
+            $url = "http://" . $this->serverhost . ":" . $this->serverport . "/auth/signin?username=" . $this->servername . "&password=" . $this->serverpass;
             $curlResponse = $this->callCurl($url, 'Test Connection');
             return $curlResponse;
-
-        } catch(Exception $e) {
+        } catch (Exception $e) {
             logActivity("Error in API request: " . $e->getMessage());
         }
     }
 
     // Create Account
-    function createAccountCurl($username, $password){
+    function createAccountCurl($username, $password)
+    {
         try {
-            $url = "http://".$this->serverhost.":".$this->serverport."/admin/new_user?new_username=".$username."&new_password=".$password."&username=".$this->servername."&token=".$this->token;
+            $url = "http://" . $this->serverhost . ":" . $this->serverport . "/admin/new_user?new_username=" . $username . "&new_password=" . $password . "&username=" . $this->servername . "&token=" . $this->token;
             $curlResponse = $this->callCurl($url, 'Create Account');
             return $curlResponse;
-
-        } catch(Exception $e) {
+        } catch (Exception $e) {
             logActivity("Error in API request: " . $e->getMessage());
         }
     }
 
     // Get Allocations
-    function allocationCurl($username, $proxy_no){
+    function allocationCurl($username, $proxy_no)
+    {
         try {
-            $url = "http://".$this->serverhost.":".$this->serverport."/admin/auto_allocate?new_username=".$username."&new_allocation_size=".$proxy_no."&username=".$this->servername."&token=".$this->token;
+            $url = "http://" . $this->serverhost . ":" . $this->serverport . "/admin/auto_allocate?new_username=" . $username . "&new_allocation_size=" . $proxy_no . "&username=" . $this->servername . "&token=" . $this->token;
             $curlResponse = $this->callCurl($url, 'Allocation');
             return $curlResponse;
-
-        } catch(Exception $e) {
+        } catch (Exception $e) {
             logActivity("Error in API request: " . $e->getMessage());
         }
     }
 
     // Terminate Account
-    function terminateAccCurl($action) {
+    function terminateAccCurl($action)
+    {
         try {
-            $url = "http://".$this->serverhost.":".$this->serverport."/admin/del_user?new_username=".$this->username."&username=".$this->servername."&token=".$this->token;
+            $url = "http://" . $this->serverhost . ":" . $this->serverport . "/admin/del_user?new_username=" . $this->username . "&username=" . $this->servername . "&token=" . $this->token;
             $curlResponse = $this->callCurl($url, $action);
             return $curlResponse;
-
-        } catch(Exception $e) {
+        } catch (Exception $e) {
             logActivity("Error in API request: " . $e->getMessage());
         }
     }
 
     // Get Allocations
-    function getProxyList($action) {
+    function getProxyList($action)
+    {
         try {
-            $url = "http://".$this->serverhost.":".$this->serverport."/admin/proxylist?new_username=".$this->username."&username=".$this->servername."&token=".$this->token;
+            $url = "http://" . $this->serverhost . ":" . $this->serverport . "/admin/proxylist?new_username=" . $this->username . "&username=" . $this->servername . "&token=" . $this->token;
             $curlResponse = $this->callCurl($url, $action);
             return $curlResponse;
-
-        } catch(Exception $e) {
-            logActivity("Error to get the allocations of user:".$this->username.", Error:" . $e->getMessage());
+        } catch (Exception $e) {
+            logActivity("Error to get the allocations of user:" . $this->username . ", Error:" . $e->getMessage());
         }
     }
 
     // Chnage Password
-    function changeUserPasswordCurl($password, $action) {
+    function changeUserPasswordCurl($password, $action)
+    {
         try {
-            $url = "http://".$this->serverhost.":".$this->serverport."/admin/user_write_password?new_username=".$this->username."&new_password=".$password."&username=".$this->servername."&token=".$this->token;
+            $url = "http://" . $this->serverhost . ":" . $this->serverport . "/admin/user_write_password?new_username=" . $this->username . "&new_password=" . $password . "&username=" . $this->servername . "&token=" . $this->token;
             $curlResponse = $this->callCurl($url, $action);
             return $curlResponse;
-
-        } catch(Exception $e) {
-            logActivity("Error to change the password for :".$this->username.", Error:" . $e->getMessage());
+        } catch (Exception $e) {
+            logActivity("Error to change the password for :" . $this->username . ", Error:" . $e->getMessage());
         }
     }
 
     // Curl Call
-    function callCurl($url , $action){
+    function callCurl($url, $action)
+    {
         try {
             $ch = curl_init();
             curl_setopt($ch, CURLOPT_URL, $url);
@@ -227,31 +181,30 @@ class Helper
             /** Log the API request and response for the Proxy Server module */
             logModuleCall('Squid Proxy', $action, $url, $response, "", "");
             return ['httpcode' => $httpCode, 'result' => json_decode($response)];
-
-        } catch(Exception $e) {
+        } catch (Exception $e) {
             logActivity("Error in API request: " . $e->getMessage());
         }
     }
 
     // Get Custom Fields
-    function getCustomFieldVal($fieldname, $fieldtype) {
+    function getCustomFieldVal($fieldname, $fieldtype)
+    {
         try {
             $customField = Capsule::table('tblcustomfields')
-            ->where('type', 'product')
-            ->where('relid', $this->productId)
-            ->where('fieldname', 'like', $fieldname)
-            ->where('fieldtype', $fieldtype)
-            ->first();
+                ->where('type', 'product')
+                ->where('relid', $this->productId)
+                ->where('fieldname', 'like', $fieldname)
+                ->where('fieldtype', $fieldtype)
+                ->first();
 
             if (!$customField) {
                 return null;
             }
 
             return Capsule::table('tblcustomfieldsvalues')
-            ->where('fieldid', $customField->id)
-            ->where('relid', $this->productId)
-            ->value('value') ?? null;
-
+                ->where('fieldid', $customField->id)
+                ->where('relid', $this->productId)
+                ->value('value') ?? null;
         } catch (Exception $e) {
             logActivity("Error fetching custom field value: " . $e->getMessage());
             return null;
@@ -259,7 +212,8 @@ class Helper
     }
 
     // Update or Insert values in custom fields
-    function insertcustomFieldVal($value, $fieldname, $fieldtype) {
+    function insertcustomFieldVal($value, $fieldname, $fieldtype)
+    {
         try {
             $customField = Capsule::table('tblcustomfields')
                 ->where('type', 'product')
@@ -276,25 +230,15 @@ class Helper
                 return $updated ? true : false;
             }
             return false;
-
         } catch (Exception $e) {
             logActivity("Error inserting values in custom fields: " . $e->getMessage());
             return false;
         }
     }
 
-    // Generate Random Password
-    function generatePassword($length = 12){
-        try {
-            return substr(str_shuffle('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@$%^&*()-_=+'), 0, $length);
-        } catch (Exception $e) {
-            logActivity("Error generating password: " . $e->getMessage());
-            return null;
-        }
-    }
-
     // Email Template for Squid Proxy 
-    function squidProxy_EmailTemplate() {
+    function squidProxy_EmailTemplate()
+    {
         try {
             if (!Capsule::table('tblemailtemplates')->where('type', 'product')->where('name', 'Proxy Access Information')->count()) {
                 Capsule::table('tblemailtemplates')->insert([
@@ -319,16 +263,15 @@ class Helper
                     'custom' => 1
                 ]);
             }
-
         } catch (\Exception $e) {
             logActivity("Error Proxy Access Information Email" . $e->getMessage());
         }
     }
 
     // Send Email
-    function sendSquidProxyEmail($email, $username, $password, $proxyList) {
+    function sendSquidProxyEmail($email, $username, $password, $proxyList)
+    {
         try {
-            $proxyList = $this->formatProxyList($proxyList);
             $postData = [
                 'messagename' => 'Proxy Access Information',
                 'id' => $this->serviceId,
@@ -343,52 +286,145 @@ class Helper
             $result = localAPI('SendEmail', $postData);
 
             if ($result['result'] == 'success') {
-                logActivity("Proxy Access Email sent successfully to User ID: ". $this->serviceId);
+                logActivity("Proxy Access Email sent successfully to User ID: " . $this->serviceId);
                 return true;
             } else {
                 logActivity("Failed to send Proxy Access Email. Error: " . $result['message']);
                 return false;
             }
-
-        } catch(Exception $e) {
+        } catch (Exception $e) {
             logActivity("Unable to sent Squid Proxy email" . $e->getMessage());
         }
     }
 
-    // Format Proxy Allocation List
-    function formatProxyList($proxyList) {
-        try {
-            $lines = explode("\n", trim($proxyList));
-            $cleaned = [];
-            foreach ($lines as $line) {
-                $parts = explode(":", $line);
-                if (count($parts) >= 2) {
-                    $cleaned[] = $parts[0] . ":" . $parts[1];
-                }
-            }
-            return implode("\n", $cleaned);
-
-        } catch(Exception $e) {
-            logActivity("Unable to format proxy allocated list: " . $e->getMessage());
-        }
-    }
-
     // Delete User Name and Password
-    function deleteProxyField($field) {
+    function deleteProxyField($field)
+    {
         try {
-            $existField = Capsule::table('tblcustomfields')->where('type', 'product')->where('relid', $this->productId)->where('fieldname', 'like', $field."|%")->first();
-            if($existField->id) {
+            $existField = Capsule::table('tblcustomfields')->where('type', 'product')->where('relid', $this->productId)->where('fieldname', 'like', $field . "|%")->first();
+            if ($existField->id) {
                 $delete = Capsule::table('tblcustomfieldsvalues')->where('fieldid', $existField->id)->where('relid', $this->serviceId)->delete();
             }
 
-            if($delete) {
-                return ['success'=> 1, 'message'=>'User name deleted successfully'];
+            if ($delete) {
+                return ['success' => 1, 'message' => 'User name deleted successfully'];
             } else {
-                return ['success'=> 0, 'message'=>'No user found'];
+                return ['success' => 0, 'message' => 'No user found'];
+            }
+        } catch (Exception $e) {
+            logActivity("Unable to delete user name details:" . $e->getMessage());
+        }
+    }
+
+    // Create Configurable Options
+    public function createConfigurableOption($pid)
+    {
+        try {
+            $groupname = 'Squid Proxy-' . $pid;
+
+            if (Capsule::table('tblproductconfiggroups')->where('name', $groupname)->count() == 0) {
+                $groupid = Capsule::table('tblproductconfiggroups')->insertGetId(
+                    [
+                        'name' => $groupname,
+                        'description' => 'Squid Proxy'
+                    ]
+                );
+
+                Capsule::table('tblproductconfiglinks')->insert([
+                    'gid' => $groupid,
+                    'pid' => $pid   
+                ]);
+
+                $productconfig = [
+                    'Quota' => [
+                        'gid' => $groupid,
+                        'optionname' => 'proxy_no|No. of Proxy',
+                        'optiontype' => '4',
+                        'qtyminimum' => '1',
+                        'qtymaximum'  => '255',
+                        'order' => '1'
+                    ]
+                ];
+
+                foreach ($productconfig as $key => $productconfigs) {
+
+                    if (Capsule::table('tblproductconfigoptions')->where('optiontype', $productconfigs['optiontype'])->where('gid' , $productconfigs['gid'])->where('optionname', 'like', '%' . $productconfigs['optionname'] . '%')->count() == 0) {
+
+                        $productconfigid = Capsule::table('tblproductconfigoptions')->insertGetId($productconfigs);
+                        if ($productconfigid) {
+                            if (Capsule::table('tblproductconfigoptionssub')->where('configid', $productconfigid)->where('optionname', 'like', '%' . $productconfigs['optionname'] . '%')->count() == 0) {
+                                $productpriceid =  Capsule::table('tblproductconfigoptionssub')->insertGetId([
+                                    'configid' => $productconfigid,
+                                    'optionname' => $productconfigs['optionname'],
+                                    'sortorder' => '1',
+                                ]);
+                                $this->insertPriceForOptions($productpriceid);
+                            }
+                        }
+                    }
+                }
             }
 
         } catch(Exception $e) {
-            logActivity("Unable to delete user name details:" . $e->getMessage());
+            logActivity("Unable to create configurable options:" . $e->getMessage());
+        }
+    }
+
+    public function insertPriceForOptions($subOptionId)
+    {
+        try {
+            $currencies = Capsule::table('tblcurrencies')->get();
+
+            if ($currencies->isEmpty()) {
+                logActivity("No currencies found in tblcurrencies.");
+                return;
+            }
+
+            foreach ($currencies as $currency) {
+                $currId = $currency->id;
+                $exists = Capsule::table('tblpricing')
+                    ->where('type', 'configoptions')
+                    ->where('currency', $currId)
+                    ->where('relid', $subOptionId)
+                    ->count() == 0;
+
+                if ($exists) {
+                    Capsule::table('tblpricing')->insert([
+                        'type'       => 'configoptions',
+                        'currency'   => $currId,
+                        'relid'      => $subOptionId,
+                        'msetupfee'  => 0.00,
+                        'qsetupfee'  => 0.00,
+                        'ssetupfee'  => 0.00,
+                        'asetupfee'  => 0.00,
+                        'bsetupfee'  => 0.00,
+                        'tsetupfee'  => 0.00,
+                        'monthly'    => 0.00,
+                        'quarterly'  => 0.00,
+                        'semiannually' => 0.00,
+                        'annually'   => 0.00,
+                        'biennially' => 0.00,
+                        'triennially' => 0.00
+                    ]);
+                    logActivity("Pricing set for currency ID: $currId, SubOption ID: $subOptionId");
+                } else {
+                    logActivity("Pricing already exists for currency ID: $currId, SubOption ID: $subOptionId");
+                }
+            }
+        } catch (Exception $e) {
+            logActivity("Unable to setup pricing for config options: " . $e->getMessage());
+        }
+    }
+
+    public function getProxyNumber() {
+        try {
+            if($this->proxynum) {
+                return $this->proxynum;
+            } else {
+                return Capsule::table('tblproducts')->where('id', $this->productId)->value('configoption3');
+            }
+        } catch(Exception $e) {
+            logActivity("Unable to get the proxy numbers: " . $e->getMessage());
         }
     }
 

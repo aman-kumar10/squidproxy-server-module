@@ -19,8 +19,9 @@ function squidproxy_MetaData(){
 function squidproxy_ConfigOptions($params){
     $helper = new Helper($params);
     // Create Config Options
-    $helper->createConfigOptions();
-    $pid = $_REQUEST['id'];
+    $pid = isset($_REQUEST['id']) ? (int) $_REQUEST['id'] : null;
+
+    $helper->createConfigurableOption($pid);
     // Custom fields (Product type)
     $helper->customfieldsProduct($pid);
 
@@ -34,8 +35,13 @@ function squidproxy_ConfigOptions($params){
             'Type' => 'password',
             'Size' => '50',
             'Description' => 'Enter API password',
-        ]
-    ];
+        ],
+        'Proxy No.' => [
+            'Type' => 'text',
+            'Size' => '3',
+            'Description' => 'Enter the proxy numbers.',
+            ]
+        ];
 }
 
 // Test Connection
@@ -63,18 +69,20 @@ function squidproxy_TestConnection(array $params){
 function squidproxy_CreateAccount($params) {
     try {
         $helper = new Helper($params);
-        $userId = $params['userid'];
         $serviceId = $params['serviceid'];
-        $proxy_no = $params['configoptions']['proxy_no'];
+        $proxy_no = $helper->getProxyNumber();
+
+        if(Capsule::table('tblproducts')->where('id', $params['pid'])->where('servertype', 'squidproxy')->count() == 0) {
+            return "Failed to create proxy account. Squid Proxy module is not attached.";
+        }
 
         if (!empty($helper->getCustomFieldVal('proxy_password|%', 'password'))) {
             $password = $helper->getCustomFieldVal('proxy_password|%', 'password');
         } else {
-            $password = $helper->generatePassword(random_int(15, 16));
+            $password = substr(str_shuffle('abcdefghijklmnopqrstuvwxyz0123456789'), 0, 9);
         }
 
-        $userVals = Capsule::table('tblclients')->where('id', $userId)->first();
-        $username = strtolower(str_replace(' ', '', $userVals->firstname.$userVals->lastname.$serviceId));
+        $username = substr(str_shuffle('abcdefghijklmnopqrstuvwxyz0123456789'), 0, 9);
 
         $accountRes = $helper->createAccountCurl($username, $password);
 
