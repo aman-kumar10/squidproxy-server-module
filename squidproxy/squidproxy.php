@@ -342,12 +342,18 @@ function squidproxy_AdminServicesTabFields(array $params){
 function squidproxy_ChangePassword(array $params){
     try {
         $helper = new Helper($params);
-        $password = $params['password'];
+        $serviceId = $params['serviceid'];
+
+        $password = substr(str_shuffle('abcdefghijklmnopqrstuvwxyz0123456789'), 0, 9);
 
         $changepssRes = $helper->changeUserPasswordCurl($password, 'Change Password');
 
         if($changepssRes['httpcode'] == 200 && $changepssRes['result']->success == true) {
             $updatePass = $helper->insertcustomFieldVal($password, 'proxy_password|%', 'password');
+
+            Capsule::table("tblhosting")->where("id",$serviceId)->update([
+                "password" => encrypt($password)
+            ]);
 
             return ($updatePass || empty($updatePass)) ? 'success' : 'Unable to change password in custom fields!';
 
