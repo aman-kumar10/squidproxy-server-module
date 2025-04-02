@@ -19,23 +19,29 @@ function squidproxy_MetaData(){
 function squidproxy_ConfigOptions($params){
     $helper = new Helper($params);
     // Create Config Options
-    $helper->createConfigOptions();
-    $pid = $_REQUEST['id'];
+    $pid = isset($_REQUEST['id']) ? (int) $_REQUEST['id'] : null;
+
+    $helper->createConfigurableOption($pid);
     // Custom fields (Product type)
     $helper->customfieldsProduct($pid);
 
     return [
         'Username' => [
-            'Type' => 'text', 
-            'Size' => '50', 
+            'Type' => 'text',
+            'Size' => '50',
             'Description' => 'Enter API username',
         ],
         'Password' => [
             'Type' => 'password',
             'Size' => '50',
             'Description' => 'Enter API password',
-        ]
-    ];
+        ],
+        'Proxy No.' => [
+            'Type' => 'text',
+            'Size' => '3',
+            'Description' => 'Enter the proxy numbers.',
+            ]
+        ];
 }
 
 // Test Connection
@@ -55,28 +61,28 @@ function squidproxy_TestConnection(array $params){
         return array('success' => $success, 'error' => $errorMsg);
 
     } catch (Exception $e) {
-
         return ['success' => false, 'error' => "Error: " . $e->getMessage()];
     }
 }
 
 // Create Account
-function squidproxy_CreateAccount($params){
+function squidproxy_CreateAccount($params) {
     try {
         $helper = new Helper($params);
-
-        $userId = $params['userid'];
         $serviceId = $params['serviceid'];
-        $proxy_no = $params['configoptions']['proxy_no'];
+        $proxy_no = $helper->getProxyNumber();
+
+        if(Capsule::table('tblproducts')->where('id', $params['pid'])->where('servertype', 'squidproxy')->count() == 0) {
+            return "Failed to create proxy account. Squid Proxy module is not attached.";
+        }
 
         if (!empty($helper->getCustomFieldVal('proxy_password|%', 'password'))) {
             $password = $helper->getCustomFieldVal('proxy_password|%', 'password');
         } else {
-            $password = $helper->generatePassword(random_int(15, 16));
+            $password = substr(str_shuffle('abcdefghijklmnopqrstuvwxyz0123456789'), 0, 9);
         }
 
-        $userVals = Capsule::table('tblclients')->where('id', $userId)->first();
-        $username = strtolower(str_replace(' ', '', $userVals->firstname.$userVals->lastname.$serviceId));
+        $username = substr(str_shuffle('abcdefghijklmnopqrstuvwxyz0123456789'), 0, 9);
 
         $accountRes = $helper->createAccountCurl($username, $password);
 
@@ -86,7 +92,7 @@ function squidproxy_CreateAccount($params){
             $helper->insertcustomFieldVal( $password, 'proxy_password|%', 'password');
 
             // allocation list
-            $allocationRes = $helper->allocationCurl($username, $proxy_no);   
+            $allocationRes = $helper->allocationCurl($username, $proxy_no);
             if($allocationRes['httpcode'] == 200 && $allocationRes['result']->success == true) {
                 // Email template
                 $helper->squidProxy_EmailTemplate();
@@ -97,6 +103,11 @@ function squidproxy_CreateAccount($params){
                     $password,
                     $allocationRes['result']->data->proxyList
                 );
+
+                Capsule::table("tblhosting")->where("id",$serviceId)->update([
+                    "username" => $username,
+                    "password" => encrypt($password)
+                ]);
                 return 'success';
 
             } else {
@@ -111,8 +122,7 @@ function squidproxy_CreateAccount($params){
 }
 
 // Suspend Account
-function squidproxy_SuspendAccount(array $params)
-{
+function squidproxy_SuspendAccount(array $params) {
     try {
         return true;
     } catch (Exception $e) {
@@ -124,16 +134,12 @@ function squidproxy_SuspendAccount(array $params)
             $e->getMessage(),
             $e->getTraceAsString()
         );
- 
         return $e->getMessage();
     }
- 
- 
 }
- 
+
 // Unsuspend Account
-function squidproxy_UnsuspendAccount(array $params)
-{
+function squidproxy_UnsuspendAccount(array $params){
     try {
         return true;
     } catch (Exception $e) {
@@ -145,22 +151,20 @@ function squidproxy_UnsuspendAccount(array $params)
             $e->getMessage(),
             $e->getTraceAsString()
         );
- 
         return $e->getMessage();
     }
 }
- 
+
 // Terminate Account
-function squidproxy_TerminateAccount(array $params)
-{
+function squidproxy_TerminateAccount(array $params){
     try {
         $helper = new Helper($params);
-    
+
         $terminateRes = $helper->terminateAccCurl('Terminate User');
 
         if($terminateRes['httpcode'] == 200 && $terminateRes['result']->success == true) {
-            $deleteProxyName = $helper->deleteProxyField( 'proxy_user'); 
-            $deleteProxyPass = $helper->deleteProxyField( 'proxy_password'); 
+            $deleteProxyName = $helper->deleteProxyField( 'proxy_user');
+            $deleteProxyPass = $helper->deleteProxyField( 'proxy_password');
             if($deleteProxyName['success'] = true && $deleteProxyPass['success'] = true) {
                 return 'success';
             } else {
@@ -179,7 +183,6 @@ function squidproxy_TerminateAccount(array $params)
             $e->getMessage(),
             $e->getTraceAsString()
         );
- 
         return $e->getMessage();
     }
 }
@@ -189,15 +192,15 @@ function squidproxy_ClientArea(array $params) {
     try {
         global $CONFIG;
         $helper = new Helper($params);
-        
+
         $username = $params['customfields']['proxy_user'];
         $password = $params['customfields']['proxy_password'];
         $serviceId = $params['serviceid'];
-        
+
         $allocationRes = $helper->getProxyList( 'Get Allocations');
         if($allocationRes['httpcode'] == 200 && $allocationRes['result']->success == true) {
             $proxy_list = $allocationRes['result']->data->proxies[0];
-        } 
+        }
 
         $assets_link = $CONFIG["SystemURL"] . "/modules/servers/squidproxy/assets/";
 
@@ -234,12 +237,11 @@ function squidproxy_ClientArea(array $params) {
 }
 
 // Admin Area Proxy Details
-function squidproxy_AdminServicesTabFields(array $params)
-{
+function squidproxy_AdminServicesTabFields(array $params){
     try {
         global $CONFIG;
         $helper = new Helper($params);
-        
+
         $username = $params['customfields']['proxy_user'];
         $password = $params['customfields']['proxy_password'];
 
@@ -256,12 +258,12 @@ function squidproxy_AdminServicesTabFields(array $params)
 
                 $proxy_list = $getUserDetails['result']->data->proxies[0];
                 if (!empty($proxy_list)) {
-                    $proxyHtml = ''; 
+                    $proxyHtml = '';
                         $proxyHtml .= htmlspecialchars($proxy_list);
                 } else {
                     $proxyHtml = '<div class="alert alert-warning" role="alert">No proxies allocated.</div>';
                 }
-    
+
                 $html = '<link href="' . $CONFIG["SystemURL"] . '/modules/servers/squidproxy/assets/css/admin-style.css" rel="stylesheet">
                         <script src="' . $CONFIG["SystemURL"] . '/modules/servers/squidproxy/assets/js/admin-script.js"></script>
                     <div class="container deviceCell">
@@ -308,10 +310,10 @@ function squidproxy_AdminServicesTabFields(array $params)
                             </tbody>
                         </table>
                     </div>';
-    
+
             } else {
                 $html = '<div class="alert alert-warning" role="alert">'. $getUserDetails['result']->message .'</div>';
-            }        
+            }
         }
 
         return ["Proxy Information" => $html];
@@ -337,16 +339,21 @@ function squidproxy_AdminServicesTabFields(array $params)
 }
 
 // Change password
-function squidproxy_ChangePassword(array $params)
-{
+function squidproxy_ChangePassword(array $params){
     try {
         $helper = new Helper($params);
-        $password = $params['password'];
+        $serviceId = $params['serviceid'];
+
+        $password = substr(str_shuffle('abcdefghijklmnopqrstuvwxyz0123456789'), 0, 9);
 
         $changepssRes = $helper->changeUserPasswordCurl($password, 'Change Password');
-        
+
         if($changepssRes['httpcode'] == 200 && $changepssRes['result']->success == true) {
             $updatePass = $helper->insertcustomFieldVal($password, 'proxy_password|%', 'password');
+
+            Capsule::table("tblhosting")->where("id",$serviceId)->update([
+                "password" => encrypt($password)
+            ]);
 
             return ($updatePass || empty($updatePass)) ? 'success' : 'Unable to change password in custom fields!';
 
@@ -363,7 +370,6 @@ function squidproxy_ChangePassword(array $params)
             $e->getMessage(),
             $e->getTraceAsString()
         );
-
         return $e->getMessage();
     }
 }
