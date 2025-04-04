@@ -97,7 +97,7 @@ td .list-textarea span {
 }
 .ad_on_table_dash tbody tr td {
     text-align: left;
-    width: 50%;
+    width: 52% !important;
 }
 .custom-proxy-btns {
     margin: 10px 0px 0px;
