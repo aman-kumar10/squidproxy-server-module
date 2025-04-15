@@ -20,8 +20,8 @@ class Helper
 
     function __construct($params = [])
     {
-        $this->servername = $params['configoption1'];
-        $this->serverpass = $params['configoption2'];
+        $this->servername = $params['serverusername'];
+        $this->serverpass = $params['serverpassword'];
         $this->serverhost = $params['serverhostname'];
         $this->serverport = $params['serverport'];
         $this->userId = $params['userid'];
