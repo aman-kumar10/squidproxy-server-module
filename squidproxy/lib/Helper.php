@@ -11,6 +11,7 @@ class Helper
     public $serverport = '';
     public $servername = '';
     public $serverpass = '';
+    public $baseUrl = '';
     public $token = '';
     public $userId = '';
     public $username = '';
@@ -32,11 +33,16 @@ class Helper
 
         $this->proxynum = $params['configoptions']['proxy_no'];
 
-        $url = "http://" . $this->serverhost . ":" . $this->serverport . "/auth/signin?username=" . $this->servername . "&password=" . $this->serverpass;
-        
-        $getToken = $this->callCurl($url, 'Get Token');
+        $this->baseUrl = "http://" . $this->serverhost . ":" . $this->serverport . "/v1/";
 
-        if ($getToken['httpcode'] == 200 && $getToken['result']->message == 'Success') {
+        $endPoint = "auth/signin/" . $this->servername;
+        $data = [
+            'password' => $this->serverpass
+        ];
+        
+        $getToken = $this->callCurl($endPoint, json_encode($data), 'GET', 'GetToken');
+
+        if ($getToken['httpcode'] == 200 && $getToken['result']->success == true) {
             $this->token = $getToken['result']->data->token;
         }
     }
@@ -95,8 +101,11 @@ class Helper
     function testConnectionCurl()
     {
         try {
-            $url = "http://" . $this->serverhost . ":" . $this->serverport . "/auth/signin?username=" . $this->servername . "&password=" . $this->serverpass;
-            $curlResponse = $this->callCurl($url, 'Test Connection');
+            $endPoint = "auth/signin/" . $this->servername;
+            $data = [
+                'password' => $this->serverpass
+            ];
+            $curlResponse = $this->callCurl($endPoint, json_encode($data), 'GET', 'TestConnection');
             return $curlResponse;
         } catch (Exception $e) {
             logActivity("Error in API request: " . $e->getMessage());
@@ -107,20 +116,25 @@ class Helper
     function createAccountCurl($username, $password)
     {
         try {
-            $url = "http://" . $this->serverhost . ":" . $this->serverport . "/admin/new_user?new_username=" . $username . "&new_password=" . $password . "&username=" . $this->servername . "&token=" . $this->token;
-            $curlResponse = $this->callCurl($url, 'Create Account');
+            $endPoint = "users/". $username;
+            $data = [
+                'password' => $password,
+                'comment' => ''
+            ];
+            $curlResponse = $this->callCurl($endPoint, json_encode($data), 'POST', 'Create Account');
             return $curlResponse;
         } catch (Exception $e) {
             logActivity("Error in API request: " . $e->getMessage());
         }
     }
 
-    // Get Allocations
+    // Assign Allocations
     function allocationCurl($username, $proxy_no)
     {
         try {
-            $url = "http://" . $this->serverhost . ":" . $this->serverport . "/admin/auto_allocate?new_username=" . $username . "&new_allocation_size=" . $proxy_no . "&username=" . $this->servername . "&token=" . $this->token;
-            $curlResponse = $this->callCurl($url, 'Allocation');
+            $endPoint = "users/" . $username . "/allocations/auto/" . $proxy_no;
+            $data = [];
+            $curlResponse = $this->callCurl($endPoint, json_encode($data), 'POST', 'Assign Allocations');
             return $curlResponse;
         } catch (Exception $e) {
             logActivity("Error in API request: " . $e->getMessage());
@@ -128,23 +142,25 @@ class Helper
     }
 
     // Terminate Account
-    function terminateAccCurl($action)
+    function terminateAccCurl($username)
     {
         try {
-            $url = "http://" . $this->serverhost . ":" . $this->serverport . "/admin/del_user?new_username=" . $this->username . "&username=" . $this->servername . "&token=" . $this->token;
-            $curlResponse = $this->callCurl($url, $action);
+            $endPoint = "users/" . $username;
+            $data = [];
+            $curlResponse = $this->callCurl($endPoint, json_encode($data), 'DELETE', 'Terminate User');
             return $curlResponse;
         } catch (Exception $e) {
             logActivity("Error in API request: " . $e->getMessage());
         }
     }
 
-    // Get Allocations
-    function getProxyList($action)
+    // Get Allocations List
+    function getProxyList($username)
     {
         try {
-            $url = "http://" . $this->serverhost . ":" . $this->serverport . "/admin/proxylist?new_username=" . $this->username . "&username=" . $this->servername . "&token=" . $this->token;
-            $curlResponse = $this->callCurl($url, $action);
+            $url = "users/" . $username . '/allocations';
+            $data = [];
+            $curlResponse = $this->callCurl($url, json_encode($data), 'GET', 'Get Allocations');
             return $curlResponse;
         } catch (Exception $e) {
             logActivity("Error to get the allocations of user:" . $this->username . ", Error:" . $e->getMessage());
@@ -164,15 +180,34 @@ class Helper
     }
 
     // Curl Call
-    function callCurl($url, $action)
+    function callCurl($endPoint, $data, $method, $action)
     {
         try {
+            $url =  $this->baseUrl . $endPoint;
             $ch = curl_init();
             curl_setopt($ch, CURLOPT_URL, $url);
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
             curl_setopt($ch, CURLOPT_TIMEOUT, 1000);
             curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
             curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
+
+            curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
+
+            if(in_array($action, ['Create Account', 'GetToken', 'TestConnection'])) {
+                curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
+
+                curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                    'Content-Type: application/json',
+                    'Content-Length: ' . strlen($data),
+                    'Authorization: Bearer ' . $this->token,
+                ]);
+
+            } else {
+                curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                    'Content-Type: application/json',
+                    'Authorization: Bearer ' . $this->token,
+                ]);
+            }
 
             $response = curl_exec($ch);
             $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -181,6 +216,7 @@ class Helper
             /** Log the API request and response for the Proxy Server module */
             logModuleCall('Squid Proxy', $action, $url, $response, "", "");
             return ['httpcode' => $httpCode, 'result' => json_decode($response)];
+
         } catch (Exception $e) {
             logActivity("Error in API request: " . $e->getMessage());
         }
