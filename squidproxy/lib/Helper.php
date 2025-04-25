@@ -36,14 +36,17 @@ class Helper
         $this->baseUrl = "http://" . $this->serverhost . ":" . $this->serverport . "/v1/";
 
         $endPoint = "auth/signin/" . $this->servername;
-        $data = [
-            'password' => $this->serverpass
-        ];
-        
-        $getToken = $this->callCurl($endPoint, json_encode($data), 'GET', 'GetToken');
 
-        if ($getToken['httpcode'] == 200 && $getToken['result']->success == true) {
-            $this->token = $getToken['result']->data->token;
+        if($this->serverpass != '') {
+            $data = [
+                'password' => $this->serverpass
+            ];
+            
+            $getToken = $this->callCurl($endPoint, json_encode($data), 'GET', 'GetToken');
+    
+            if ($getToken['httpcode'] == 200 && $getToken['result']->success == true) {
+                $this->token = $getToken['result']->data->token;
+            }
         }
     }
 
@@ -168,16 +171,16 @@ class Helper
     }
 
     // Chnage Password
-    function changeUserPasswordCurl($password, $action)
-    {
-        try {
-            $url = "http://" . $this->serverhost . ":" . $this->serverport . "/admin/user_write_password?new_username=" . $this->username . "&new_password=" . $password . "&username=" . $this->servername . "&token=" . $this->token;
-            $curlResponse = $this->callCurl($url, $action);
-            return $curlResponse;
-        } catch (Exception $e) {
-            logActivity("Error to change the password for :" . $this->username . ", Error:" . $e->getMessage());
-        }
-    }
+    // function changeUserPasswordCurl($password, $action)
+    // {
+    //     try {
+    //         $url = "http://" . $this->serverhost . ":" . $this->serverport . "/admin/user_write_password?new_username=" . $this->username . "&new_password=" . $password . "&username=" . $this->servername . "&token=" . $this->token;
+    //         $curlResponse = $this->callCurl($url, $action);
+    //         return $curlResponse;
+    //     } catch (Exception $e) {
+    //         logActivity("Error to change the password for :" . $this->username . ", Error:" . $e->getMessage());
+    //     }
+    // }
 
     // Curl Call
     function callCurl($endPoint, $data, $method, $action)

@@ -256,8 +256,15 @@ function squidproxy_AdminServicesTabFields(array $params){
             $getUserDetails = $helper->getProxyList( $username);
 
             if($getUserDetails['httpcode'] == 200 && $getUserDetails['result']->success == true) {
-            // echo "<pre>"; print_r($getUserDetails); die;
-                $proxy_list = $getUserDetails['result']->data->allocations[0]->formattedList;
+                // echo "<pre>"; print_r($getUserDetails); die;
+                // $proxy_list = $getUserDetails['result']->data->allocations[0]->formattedList;
+
+                // *** *** ***
+                $allocations = $getUserDetails['result']->data->allocations;
+                $proxy_list = $allocations[count($allocations) - 1]->formattedList;
+                // echo "<pre>"; print_r($proxy_list); die;
+
+
                 if (!empty($proxy_list)) {
                     $proxyHtml = '';
                         $proxyHtml .= htmlspecialchars($proxy_list);
@@ -361,7 +368,7 @@ function squidproxy_ChangePassword(array $params){
         // } else {
         //     return $changepssRes['result']->message;
         // }
-        return "";
+        return "success";
 
     } catch (Exception $e) {
         // Record the error in WHMCS's module log.
