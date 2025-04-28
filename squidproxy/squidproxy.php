@@ -26,16 +26,6 @@ function squidproxy_ConfigOptions($params){
     $helper->customfieldsProduct($pid);
 
     return [
-        'Username' => [
-            'Type' => 'text',
-            'Size' => '50',
-            'Description' => 'Enter API username',
-        ],
-        'Password' => [
-            'Type' => 'password',
-            'Size' => '50',
-            'Description' => 'Enter API password',
-        ],
         'Proxy No.' => [
             'Type' => 'text',
             'Size' => '3',
@@ -88,12 +78,18 @@ function squidproxy_CreateAccount($params) {
 
         if ($accountRes['httpcode'] == 200 && $accountRes['result']->success == true) {
 
+            // Insert Username & Password in customfields
             $helper->insertcustomFieldVal($username, 'proxy_user|%', 'text');
             $helper->insertcustomFieldVal( $password, 'proxy_password|%', 'password');
 
             // allocation list
             $allocationRes = $helper->allocationCurl($username, $proxy_no);
+            
             if($allocationRes['httpcode'] == 200 && $allocationRes['result']->success == true) {
+
+                // Insert allocations range in customfields
+                $helper->insertcustomFieldVal( $allocationRes['result']->data->allocation, 'allocation_range|%', 'text');
+
                 // Email template
                 $helper->squidProxy_EmailTemplate();
                 // Send Email
@@ -166,7 +162,9 @@ function squidproxy_TerminateAccount(array $params){
         if($terminateRes['httpcode'] == 200 && $terminateRes['result']->success == true) {
             $deleteProxyName = $helper->deleteProxyField( 'proxy_user');
             $deleteProxyPass = $helper->deleteProxyField( 'proxy_password');
-            if($deleteProxyName['success'] = true && $deleteProxyPass['success'] = true) {
+            $deleteProxyRange = $helper->deleteProxyField( 'allocation_range');
+
+            if($deleteProxyName['success'] = true && $deleteProxyPass['success'] = true && $deleteProxyRange['success'] = true) {
                 return 'success';
             } else {
                 return 'User does not exist';
@@ -237,7 +235,7 @@ function squidproxy_ClientArea(array $params) {
     }
 }
 
-// // Admin Area Proxy Details
+// Admin Area Proxy Details
 function squidproxy_AdminServicesTabFields(array $params){
     try {
         global $CONFIG;
@@ -256,14 +254,8 @@ function squidproxy_AdminServicesTabFields(array $params){
             $getUserDetails = $helper->getProxyList( $username);
 
             if($getUserDetails['httpcode'] == 200 && $getUserDetails['result']->success == true) {
-                // echo "<pre>"; print_r($getUserDetails); die;
-                // $proxy_list = $getUserDetails['result']->data->allocations[0]->formattedList;
-
-                // *** *** ***
-                $allocations = $getUserDetails['result']->data->allocations;
-                $proxy_list = $allocations[count($allocations) - 1]->formattedList;
-                // echo "<pre>"; print_r($proxy_list); die;
-
+                
+                $proxy_list = $getUserDetails['result']->data->allocations[0]->formattedList;
 
                 if (!empty($proxy_list)) {
                     $proxyHtml = '';
@@ -349,26 +341,34 @@ function squidproxy_AdminServicesTabFields(array $params){
 // Change password
 function squidproxy_ChangePassword(array $params){
     try {
-        // $helper = new Helper($params);
-        // $serviceId = $params['serviceid'];
+        $helper = new Helper($params);
+        $username = $params['username'] ?? ($params['customfields']['proxy_user'] ?? null);
+        $password = $params['password'];
+        $serviceId = $params['serviceid'];
 
-        // $password = substr(str_shuffle('abcdefghijklmnopqrstuvwxyz0123456789'), 0, 9);
+        if(!empty($username)) {
 
-        // $changepssRes = $helper->changeUserPasswordCurl($password, 'Change Password');
+            // Change password
+            $changepssRes = $helper->changeUserPasswordCurl($username, $password, 'Change Password');
+    
+            if($changepssRes['httpcode'] == 200 && $changepssRes['result']->success == true) {
 
-        // if($changepssRes['httpcode'] == 200 && $changepssRes['result']->success == true) {
-        //     $updatePass = $helper->insertcustomFieldVal($password, 'proxy_password|%', 'password');
+                $updatePass = $helper->insertcustomFieldVal($password, 'proxy_password|%', 'password');
+    
+                Capsule::table("tblhosting")->where("id",$serviceId)->update([
+                    "password" => encrypt($password)
+                ]);
+    
+                return ($updatePass || empty($updatePass)) ? 'success' : 'Unable to change password in custom fields!';
+    
+            } else {
+                return $changepssRes['result']->message;
+            }
 
-        //     Capsule::table("tblhosting")->where("id",$serviceId)->update([
-        //         "password" => encrypt($password)
-        //     ]);
+        } else {
+            return "User details not found.";
+        }
 
-        //     return ($updatePass || empty($updatePass)) ? 'success' : 'Unable to change password in custom fields!';
-
-        // } else {
-        //     return $changepssRes['result']->message;
-        // }
-        return "success";
 
     } catch (Exception $e) {
         // Record the error in WHMCS's module log.
@@ -387,42 +387,33 @@ function squidproxy_ChangePassword(array $params){
 function squidproxy_AdminCustomButtonArray()
 {
     return array(
-        "Manage Proxies" => "manageProxy",
+        "Rotate Proxies" => "rotateProxy",
     );
 }
 
-// Delete & Create new proxy account 
-function squidproxy_manageProxy(array $params)
+// Rotate proxy allocations 
+function squidproxy_rotateProxy(array $params)
 {
     try {
         $helper = new Helper($params);
         
-        $username = $params['username'];
-        $password = $params['password'];
-        $proxy_no = $helper->getProxyNumber();
-        $serviceId = $params['serviceid'];
+        $username = $params['username'] ?? ($params['customfields']['proxy_user'] ?? null);
+        $allocationRange = $params['customfields']['allocation_range'] ?? null;
 
-        // new proxy allocations
-        $allocationRes = $helper->allocationCurl($username, $proxy_no);
-        if($allocationRes['httpcode'] == 200 && $allocationRes['result']->success == true) {
-            // Email template
-            $helper->squidProxy_EmailTemplate();
-            // Send Email
-            $helper->sendSquidProxyEmail(
-                $params['clientsdetails']['email'],
-                $username,
-                $password,
-                $allocationRes['result']->data->proxyList
-            );
-
-            Capsule::table("tblhosting")->where("id",$serviceId)->update([
-                "username" => $username,
-                "password" => encrypt($password)
-            ]);
-            return 'success';
+        if(!empty($username) && !empty($allocationRange)) {
+            
+            // Rotate allocation
+            $rotateAllocations = $helper->rotateAllocations($username, $allocationRange);
+            if($rotateAllocations['httpcode'] == 200 && $rotateAllocations['result']->success == true) {
+                
+                // Update allocations range in customfield
+                $helper->insertcustomFieldVal( $rotateAllocations['result']->data->newAssignment->allocation, 'allocation_range|%', 'text');
+                
+                return 'success';
+            }
 
         } else {
-            return $allocationRes['result']->message;
+            return 'User details or allocation range missing.';
         }
 
     } catch (Exception $e) {
