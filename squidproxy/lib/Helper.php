@@ -26,12 +26,12 @@ class Helper
         $this->serverhost = $params['serverhostname'];
         $this->serverport = $params['serverport'];
         $this->userId = $params['userid'];
-        $this->username = $params['customfields']['proxy_user'];
+        $this->username = $params['username'];
 
         $this->serviceId = $params['serviceid'];
         $this->productId = $params['pid'];
 
-        $this->proxynum = $params['configoptions']['proxy_no'];
+        $this->proxynum = $params['configoption1'] ?? Capsule::table('tblproducts')->where('id', $params['pid'])->value('configoption1');
 
         $this->baseUrl = "http://" . $this->serverhost . ":" . $this->serverport . "/v1/";
 
@@ -54,52 +54,36 @@ class Helper
     function customfieldsProduct($id)
     {
         try {
-            $fields = [
-                [
-                    'fieldname'   => 'proxy_user|Proxy Customer Name',
-                    'description' => 'Enter Proxy Customer Name',
-                    'fieldtype'   => 'text',
-                    'relid' => $id
-                ],
-                [
-                    'fieldname'   => 'proxy_password|Proxy Customer Password',
-                    'description' => 'Enter Proxy Customer Password',
-                    'fieldtype'   => 'password',
-                    'relid' => $id
-                ],
-                [
-                    'fieldname'   => 'allocation_range|Proxy Allocations Range',
-                    'description' => 'Enter Proxy Allocations Range',
-                    'fieldtype'   => 'text',
-                    'relid' => $id
-                ],
+            $field = [
+                'fieldname'   => 'allocation_range|Proxy Allocations Range',
+                'description' => 'Enter Proxy Allocations Range',
+                'fieldtype'   => 'text',
+                'relid'       => $id
             ];
 
-            foreach ($fields as $field) {
-                $fieldExist = Capsule::table('tblcustomfields')
-                    ->where('relid', $field['relid'])
-                    ->where('fieldname', $field['fieldname'])
-                    ->where('type', 'product')
-                    ->exists();
+            $fieldExist = Capsule::table('tblcustomfields')
+                ->where('relid', $field['relid'])
+                ->where('fieldname', $field['fieldname'])
+                ->where('type', 'product')
+                ->exists();
 
-                if (!$fieldExist) {
-                    Capsule::table('tblcustomfields')->insert([
-                        'type'        => 'product',
-                        'relid'        => $field['relid'],
-                        'fieldname'   => $field['fieldname'],
-                        'description' => $field['description'],
-                        'fieldtype'   => $field['fieldtype'],
-                        'adminonly'   => 'on',
-                        'required'    => '0',
-                        'showorder'   => '0',
-                        'showinvoice' => '0',
-                        'sortorder'   => '0',
-                    ]);
+            if (!$fieldExist) {
+                Capsule::table('tblcustomfields')->insert([
+                    'type'        => 'product',
+                    'relid'       => $field['relid'],
+                    'fieldname'   => $field['fieldname'],
+                    'description' => $field['description'],
+                    'fieldtype'   => $field['fieldtype'],
+                    'adminonly'   => 'on',
+                    'required'    => '0',
+                    'showorder'   => '0',
+                    'showinvoice' => '0',
+                    'sortorder'   => '0',
+                ]);
 
-                    logActivity("Custom product field '{$field['fieldname']}' created successfully.");
-                } else {
-                    logActivity("Custom product field '{$field['fieldname']}' already exists.");
-                }
+                logActivity("Custom product field '{$field['fieldname']}' created successfully.");
+            } else {
+                logActivity("Custom product field '{$field['fieldname']}' already exists.");
             }
         } catch (Exception $e) {
             logActivity("Error in custom fields: " . $e->getMessage());
@@ -185,7 +169,7 @@ class Helper
                 'key' => 'password',
                 'value' => $password
             ];
-            $curlResponse = $this->callCurl($url, json_encode($data), 'PUT', 'Change Password');
+            $curlResponse = $this->callCurl($url, json_encode($data), 'PUT', $action);
             return $curlResponse;
         } catch (Exception $e) {
             logActivity("Error to change the password for :" . $this->username . ", Error:" . $e->getMessage());
@@ -244,31 +228,6 @@ class Helper
 
         } catch (Exception $e) {
             logActivity("Error in API request: " . $e->getMessage());
-        }
-    }
-
-    // Get Custom Fields
-    function getCustomFieldVal($fieldname, $fieldtype)
-    {
-        try {
-            $customField = Capsule::table('tblcustomfields')
-                ->where('type', 'product')
-                ->where('relid', $this->productId)
-                ->where('fieldname', 'like', $fieldname)
-                ->where('fieldtype', $fieldtype)
-                ->first();
-
-            if (!$customField) {
-                return null;
-            }
-
-            return Capsule::table('tblcustomfieldsvalues')
-                ->where('fieldid', $customField->id)
-                ->where('relid', $this->productId)
-                ->value('value') ?? null;
-        } catch (Exception $e) {
-            logActivity("Error fetching custom field value: " . $e->getMessage());
-            return null;
         }
     }
 
@@ -474,18 +433,6 @@ class Helper
             }
         } catch (Exception $e) {
             logActivity("Unable to setup pricing for config options: " . $e->getMessage());
-        }
-    }
-
-    public function getProxyNumber() {
-        try {
-            if($this->proxynum) {
-                return $this->proxynum;
-            } else {
-                return Capsule::table('tblproducts')->where('id', $this->productId)->value('configoption1');
-            }
-        } catch(Exception $e) {
-            logActivity("Unable to get the proxy numbers: " . $e->getMessage());
         }
     }
 
