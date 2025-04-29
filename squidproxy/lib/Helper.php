@@ -36,14 +36,17 @@ class Helper
         $this->baseUrl = "http://" . $this->serverhost . ":" . $this->serverport . "/v1/";
 
         $endPoint = "auth/signin/" . $this->servername;
-        $data = [
-            'password' => $this->serverpass
-        ];
-        
-        $getToken = $this->callCurl($endPoint, json_encode($data), 'GET', 'GetToken');
 
-        if ($getToken['httpcode'] == 200 && $getToken['result']->success == true) {
-            $this->token = $getToken['result']->data->token;
+        if($this->serverpass != '') {
+            $data = [
+                'password' => $this->serverpass
+            ];
+            
+            $getToken = $this->callCurl($endPoint, json_encode($data), 'GET', 'GetToken');
+    
+            if ($getToken['httpcode'] == 200 && $getToken['result']->success == true) {
+                $this->token = $getToken['result']->data->token;
+            }
         }
     }
 
@@ -62,6 +65,12 @@ class Helper
                     'fieldname'   => 'proxy_password|Proxy Customer Password',
                     'description' => 'Enter Proxy Customer Password',
                     'fieldtype'   => 'password',
+                    'relid' => $id
+                ],
+                [
+                    'fieldname'   => 'allocation_range|Proxy Allocations Range',
+                    'description' => 'Enter Proxy Allocations Range',
+                    'fieldtype'   => 'text',
                     'relid' => $id
                 ],
             ];
@@ -168,14 +177,30 @@ class Helper
     }
 
     // Chnage Password
-    function changeUserPasswordCurl($password, $action)
+    function changeUserPasswordCurl($username, $password, $action)
     {
         try {
-            $url = "http://" . $this->serverhost . ":" . $this->serverport . "/admin/user_write_password?new_username=" . $this->username . "&new_password=" . $password . "&username=" . $this->servername . "&token=" . $this->token;
-            $curlResponse = $this->callCurl($url, $action);
+            $url = "users/" . $username;
+            $data = [
+                'key' => 'password',
+                'value' => $password
+            ];
+            $curlResponse = $this->callCurl($url, json_encode($data), 'PUT', 'Change Password');
             return $curlResponse;
         } catch (Exception $e) {
             logActivity("Error to change the password for :" . $this->username . ", Error:" . $e->getMessage());
+        }
+    }
+
+    // Rotate Allocations 
+    public function rotateAllocations($user, $range) {
+        try {
+            $url = "users/" . $user . "/allocations/" . $range . "/rotate";
+            $data = [];
+            $curlResponse = $this->callCurl($url, json_encode($data), 'POST', 'Rotate Allocations');
+            return $curlResponse;
+        } catch(Exception $e){
+            logActivity("Unable to rotate allocations for user '".$user."' , Error: " . $e->getMessage());
         }
     }
 
@@ -193,7 +218,7 @@ class Helper
 
             curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
 
-            if(in_array($action, ['Create Account', 'GetToken', 'TestConnection'])) {
+            if(in_array($action, ['Create Account', 'GetToken', 'TestConnection', 'Change Password'])) {
                 curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
 
                 curl_setopt($ch, CURLOPT_HTTPHEADER, [
@@ -457,7 +482,7 @@ class Helper
             if($this->proxynum) {
                 return $this->proxynum;
             } else {
-                return Capsule::table('tblproducts')->where('id', $this->productId)->value('configoption3');
+                return Capsule::table('tblproducts')->where('id', $this->productId)->value('configoption1');
             }
         } catch(Exception $e) {
             logActivity("Unable to get the proxy numbers: " . $e->getMessage());
