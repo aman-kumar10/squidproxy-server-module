@@ -26,12 +26,12 @@ class Helper
         $this->serverhost = $params['serverhostname'];
         $this->serverport = $params['serverport'];
         $this->userId = $params['userid'];
-        $this->username = $params['customfields']['proxy_user'];
+        $this->username = $params['username'];
 
         $this->serviceId = $params['serviceid'];
         $this->productId = $params['pid'];
 
-        $this->proxynum = $params['configoptions']['proxy_no'];
+        $this->proxynum = $params['configoption1'] ?? Capsule::table('tblproducts')->where('id', $params['pid'])->value('configoption1');
 
         $this->baseUrl = "http://" . $this->serverhost . ":" . $this->serverport . "/v1/";
 
@@ -228,31 +228,6 @@ class Helper
 
         } catch (Exception $e) {
             logActivity("Error in API request: " . $e->getMessage());
-        }
-    }
-
-    // Get Custom Fields
-    function getCustomFieldVal($fieldname, $fieldtype)
-    {
-        try {
-            $customField = Capsule::table('tblcustomfields')
-                ->where('type', 'product')
-                ->where('relid', $this->productId)
-                ->where('fieldname', 'like', $fieldname)
-                ->where('fieldtype', $fieldtype)
-                ->first();
-
-            if (!$customField) {
-                return null;
-            }
-
-            return Capsule::table('tblcustomfieldsvalues')
-                ->where('fieldid', $customField->id)
-                ->where('relid', $this->productId)
-                ->value('value') ?? null;
-        } catch (Exception $e) {
-            logActivity("Error fetching custom field value: " . $e->getMessage());
-            return null;
         }
     }
 
@@ -458,18 +433,6 @@ class Helper
             }
         } catch (Exception $e) {
             logActivity("Unable to setup pricing for config options: " . $e->getMessage());
-        }
-    }
-
-    public function getProxyNumber() {
-        try {
-            if($this->proxynum) {
-                return $this->proxynum;
-            } else {
-                return Capsule::table('tblproducts')->where('id', $this->productId)->value('configoption1');
-            }
-        } catch(Exception $e) {
-            logActivity("Unable to get the proxy numbers: " . $e->getMessage());
         }
     }
 

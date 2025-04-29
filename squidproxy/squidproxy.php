@@ -60,19 +60,14 @@ function squidproxy_CreateAccount($params) {
     try {
         $helper = new Helper($params);
         $serviceId = $params['serviceid'];
-        $proxy_no = $helper->getProxyNumber();
+        $proxy_no = $params['configoption1'] ?? Capsule::table('tblproducts')->where('id', $params['pid'])->value('configoption1');
         
         if(Capsule::table('tblproducts')->where('id', $params['pid'])->where('servertype', 'squidproxy')->count() == 0) {
             return "Failed to create proxy account. Squid Proxy module is not attached.";
         }
-
-        if (!empty($helper->getCustomFieldVal('proxy_password|%', 'password'))) {
-            $password = $helper->getCustomFieldVal('proxy_password|%', 'password');
-        } else {
-            $password = substr(str_shuffle('abcdefghijklmnopqrstuvwxyz0123456789'), 0, 9);
-        }
-
+            
         $username = substr(str_shuffle('abcdefghijklmnopqrstuvwxyz0123456789'), 0, 9);
+        $password = substr(str_shuffle('abcdefghijklmnopqrstuvwxyz0123456789'), 0, 9);
 
         $accountRes = $helper->createAccountCurl($username, $password);
 
@@ -156,11 +151,10 @@ function squidproxy_TerminateAccount(array $params){
         $terminateRes = $helper->terminateAccCurl($username);
 
         if($terminateRes['httpcode'] == 200 && $terminateRes['result']->success == true) {
-            $deleteProxyName = $helper->deleteProxyField( 'proxy_user');
-            $deleteProxyPass = $helper->deleteProxyField( 'proxy_password');
+
             $deleteProxyRange = $helper->deleteProxyField( 'allocation_range');
 
-            if($deleteProxyName['success'] = true && $deleteProxyPass['success'] = true && $deleteProxyRange['success'] = true) {
+            if($deleteProxyRange['success'] = true) {
                 return 'success';
             } else {
                 return 'User does not exist';
