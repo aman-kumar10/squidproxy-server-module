@@ -78,10 +78,6 @@ function squidproxy_CreateAccount($params) {
 
         if ($accountRes['httpcode'] == 200 && $accountRes['result']->success == true) {
 
-            // Insert Username & Password in customfields
-            $helper->insertcustomFieldVal($username, 'proxy_user|%', 'text');
-            $helper->insertcustomFieldVal( $password, 'proxy_password|%', 'password');
-
             // allocation list
             $allocationRes = $helper->allocationCurl($username, $proxy_no);
             
@@ -155,7 +151,7 @@ function squidproxy_UnsuspendAccount(array $params){
 function squidproxy_TerminateAccount(array $params){
     try {
         $helper = new Helper($params);
-        $username = $params['customfields']['proxy_user'];
+        $username = $params['username'];
 
         $terminateRes = $helper->terminateAccCurl($username);
 
@@ -192,8 +188,8 @@ function squidproxy_ClientArea(array $params) {
         global $CONFIG;
         $helper = new Helper($params);
 
-        $username = $params['customfields']['proxy_user'];
-        $password = $params['customfields']['proxy_password'];
+        $username = $params['username'];
+        $password = $params['password'];
         $serviceId = $params['serviceid'];
 
         $allocationRes = $helper->getProxyList( $username);
@@ -241,8 +237,8 @@ function squidproxy_AdminServicesTabFields(array $params){
         global $CONFIG;
         $helper = new Helper($params);
 
-        $username = $params['customfields']['proxy_user'];
-        $password = $params['customfields']['proxy_password'];
+        $username = $params['username'];
+        $password = $params['password'];
 
         if($username == '' && $password == '') {
             $html = '<div class="alert alert-warning" role="alert"> This user does not have an active proxy account. </div>';
@@ -342,24 +338,26 @@ function squidproxy_AdminServicesTabFields(array $params){
 function squidproxy_ChangePassword(array $params){
     try {
         $helper = new Helper($params);
-        $username = $params['username'] ?? ($params['customfields']['proxy_user'] ?? null);
-        $password = $params['password'];
+        $username = $params['username'] ?? null;
         $serviceId = $params['serviceid'];
 
-        if(!empty($username)) {
+        if(isset($_SESSION['adminid'])) {
+            $password = substr(str_shuffle('abcdefghijklmnopqrstuvwxyz0123456789'), 0, 9);
+        } else {
+            $password = $params['password'];
+        }
 
+        if(!empty($username)) {
             // Change password
             $changepssRes = $helper->changeUserPasswordCurl($username, $password, 'Change Password');
     
             if($changepssRes['httpcode'] == 200 && $changepssRes['result']->success == true) {
 
-                $updatePass = $helper->insertcustomFieldVal($password, 'proxy_password|%', 'password');
-    
                 Capsule::table("tblhosting")->where("id",$serviceId)->update([
                     "password" => encrypt($password)
                 ]);
-    
-                return ($updatePass || empty($updatePass)) ? 'success' : 'Unable to change password in custom fields!';
+
+                return "success";
     
             } else {
                 return $changepssRes['result']->message;
@@ -397,8 +395,10 @@ function squidproxy_rotateProxy(array $params)
     try {
         $helper = new Helper($params);
         
-        $username = $params['username'] ?? ($params['customfields']['proxy_user'] ?? null);
+        $username = $params['username'] ?? null;
         $allocationRange = $params['customfields']['allocation_range'] ?? null;
+        $password = substr(str_shuffle('abcdefghijklmnopqrstuvwxyz0123456789'), 0, 9);
+        $serviceId = $params['serviceid'];
 
         if(!empty($username) && !empty($allocationRange)) {
             
@@ -409,6 +409,17 @@ function squidproxy_rotateProxy(array $params)
                 // Update allocations range in customfield
                 $helper->insertcustomFieldVal( $rotateAllocations['result']->data->newAssignment->allocation, 'allocation_range|%', 'text');
                 
+                $changePassword = $helper->changeUserPasswordCurl($username, $password, 'Change Password');
+                if($changePassword['httpcode'] == 200 && $changePassword['result']->success == true) {
+        
+                    Capsule::table("tblhosting")->where("id",$serviceId)->update([
+                        "password" => encrypt($password)
+                    ]);
+        
+                } else {
+                    return "Proxies roate successfully, Error: " . $changePassword['result']->message;
+                }
+
                 return 'success';
             }
 

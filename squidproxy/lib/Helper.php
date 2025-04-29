@@ -54,52 +54,36 @@ class Helper
     function customfieldsProduct($id)
     {
         try {
-            $fields = [
-                [
-                    'fieldname'   => 'proxy_user|Proxy Customer Name',
-                    'description' => 'Enter Proxy Customer Name',
-                    'fieldtype'   => 'text',
-                    'relid' => $id
-                ],
-                [
-                    'fieldname'   => 'proxy_password|Proxy Customer Password',
-                    'description' => 'Enter Proxy Customer Password',
-                    'fieldtype'   => 'password',
-                    'relid' => $id
-                ],
-                [
-                    'fieldname'   => 'allocation_range|Proxy Allocations Range',
-                    'description' => 'Enter Proxy Allocations Range',
-                    'fieldtype'   => 'text',
-                    'relid' => $id
-                ],
+            $field = [
+                'fieldname'   => 'allocation_range|Proxy Allocations Range',
+                'description' => 'Enter Proxy Allocations Range',
+                'fieldtype'   => 'text',
+                'relid'       => $id
             ];
 
-            foreach ($fields as $field) {
-                $fieldExist = Capsule::table('tblcustomfields')
-                    ->where('relid', $field['relid'])
-                    ->where('fieldname', $field['fieldname'])
-                    ->where('type', 'product')
-                    ->exists();
+            $fieldExist = Capsule::table('tblcustomfields')
+                ->where('relid', $field['relid'])
+                ->where('fieldname', $field['fieldname'])
+                ->where('type', 'product')
+                ->exists();
 
-                if (!$fieldExist) {
-                    Capsule::table('tblcustomfields')->insert([
-                        'type'        => 'product',
-                        'relid'        => $field['relid'],
-                        'fieldname'   => $field['fieldname'],
-                        'description' => $field['description'],
-                        'fieldtype'   => $field['fieldtype'],
-                        'adminonly'   => 'on',
-                        'required'    => '0',
-                        'showorder'   => '0',
-                        'showinvoice' => '0',
-                        'sortorder'   => '0',
-                    ]);
+            if (!$fieldExist) {
+                Capsule::table('tblcustomfields')->insert([
+                    'type'        => 'product',
+                    'relid'       => $field['relid'],
+                    'fieldname'   => $field['fieldname'],
+                    'description' => $field['description'],
+                    'fieldtype'   => $field['fieldtype'],
+                    'adminonly'   => 'on',
+                    'required'    => '0',
+                    'showorder'   => '0',
+                    'showinvoice' => '0',
+                    'sortorder'   => '0',
+                ]);
 
-                    logActivity("Custom product field '{$field['fieldname']}' created successfully.");
-                } else {
-                    logActivity("Custom product field '{$field['fieldname']}' already exists.");
-                }
+                logActivity("Custom product field '{$field['fieldname']}' created successfully.");
+            } else {
+                logActivity("Custom product field '{$field['fieldname']}' already exists.");
             }
         } catch (Exception $e) {
             logActivity("Error in custom fields: " . $e->getMessage());
@@ -185,7 +169,7 @@ class Helper
                 'key' => 'password',
                 'value' => $password
             ];
-            $curlResponse = $this->callCurl($url, json_encode($data), 'PUT', 'Change Password');
+            $curlResponse = $this->callCurl($url, json_encode($data), 'PUT', $action);
             return $curlResponse;
         } catch (Exception $e) {
             logActivity("Error to change the password for :" . $this->username . ", Error:" . $e->getMessage());
